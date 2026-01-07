@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cafe POS - Point of Sale System</title>
+  <!-- Alpine.js for reactive UI -->
+  <script defer src="js/alpine.min.js"></script>
+  <link rel="stylesheet" href="styles/main.css">
+</head>
+
+<body x-data="posApp()" x-init="init()">
+
+  <!-- Login Screen -->
+  <div id="login-screen" class="screen" :class="{ 'active': !isLoggedIn && !isLocked }">
+    <div class="login-container">
+      <div class="login-card">
+        <div class="login-header">
+          <div class="logo">
+            <span class="logo-icon">☕</span>
+            <h1>COFFEE CAFE</h1>
+          </div>
+          <p class="tagline">Point of Sale System</p>
+        </div>
+        <form @submit.prevent="login()">
+          <div class="pin-container">
+            <label>Enter PIN</label>
+            <div class="pin-inputs">
+              <template x-for="i in 4" :key="i">
+                <input type="password" maxlength="1" class="pin-digit" x-model="pin[i-1]"
+                  @input="handlePinInput($event, i-1)" @keydown="handlePinKeydown($event, i-1)" :autofocus="i===1">
+              </template>
+            </div>
+          </div>
+          <button type="submit" class="btn btn-primary btn-full">Login</button>
+          <p class="login-hint">Use PIN: 1234</p>
+        </form>
+        <div x-show="loginError" class="error-message" x-text="loginError"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Lock Screen -->
+  <div id="lock-screen" class="screen" :class="{ 'active': isLocked }">
+    <div class="lock-container">
+      <div class="lock-icon">🔒</div>
+      <h2>Screen Locked</h2>
+      <p>Enter PIN to continue</p>
+      <form @submit.prevent="unlock()">
+        <div class="pin-container">
+          <div class="pin-inputs">
+            <template x-for="i in 4" :key="i">
+              <input type="password" maxlength="1" class="pin-digit" x-model="lockPin[i-1]"
+                @input="handleLockPinInput($event, i-1)" @keydown="handlePinKeydown($event, i-1)">
+            </template>
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full">Unlock</button>
+      </form>
+      <div x-show="lockError" class="error-message" x-text="lockError"></div>
+    </div>
+  </div>
+
+  <!-- Main Application -->
+  <div id="app-screen" class="screen" :class="{ 'active': isLoggedIn && !isLocked }">
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-left">
+        <h1 x-text="appSettings.business_name">Cafe POS</h1>
+        <div class="date-time">
+          <span class="current-time" x-text="currentTime"></span>
+          <span class="current-date" x-text="currentDate"></span>
+        </div>
+      </div>
+      <div class="header-center">
+        <div class="current-time" x-text="currentTime"></div>
+      </div>
+      <div class="header-right">
+        <button class="btn btn-icon" @click="toggleTheme()" title="Toggle Theme"
+          x-text="theme === 'light' ? '🌙' : '☀️'"></button>
+        <button class="btn btn-icon" @click="showKOT = true" title="Kitchen View">👨‍🍳</button>
+        <button class="btn btn-icon" @click="showHistory = true" title="Order History">📋</button>
+        <button class="btn btn-icon" @click="showReportsModal = true; generateReport()" title="Reports"
+          x-show="hasPermission('view_reports')">📊</button>
+        <button class="btn btn-icon" @click="showUserManagement = true; loadUsers()" title="User Management"
+          x-show="hasPermission('manage_users')">👥</button>
+        <button class="btn btn-icon" @click="showInventoryManagement = true; loadLowStockItems()" title="Inventory"
+          x-show="hasPermission('view_inventory')">📦</button>
+        <button class="btn btn-icon" @click="showCustomerManagement = true; loadCustomers()"
+          title="Customers">👤</button>
+        <button class="btn btn-icon" @click="downloadBackup()" title="Backup"
+          x-show="hasPermission('manage_settings')">💾</button>
+        <button class="btn btn-icon" @click="showSettings = true; updateReceiptPreview()" title="Settings">⚙️</button>
+        <button class="btn btn-icon" @click="seedSampleData()" title="Seed Sample Data"
+          x-show="orders.length === 0">📥</button>
+        <div class="user-info" x-show="currentUser">
+          <span class="user-name" x-text="currentUser?.full_name || currentUser?.username || 'User'"></span>
+          <span class="user-role" x-text="currentUser?.role"></span>
+        </div>
+        <button class="btn btn-icon" @click="logout()" title="Logout">🚪</button>
+      </div>
+    </header>
+    <style>
+      /* Toast Notifications */
+      #toast-container {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .toast {
+        min-width: 250px;
+        background: var(--bg-card);
+        color: var(--text-primary);
+        padding: 12px 16px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        border-left: 4px solid var(--primary-color);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        animation: slideIn 0.3s ease-out;
+      }
+
+      .toast.success {
+        border-left-color: #22c55e;
+      }
+
+      .toast.error {
+        border-left-color: #ef4444;
+      }
+
+      .toast.info {
+        border-left-color: #3b82f6;
+      }
+
+      @keyframes slideIn {
+        from {
+          transform: translateX(100%);
+          opacity: 0;
+        }
+
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+    </style>
+
+    <!-- Main Content -->
+    <main class="app-main">
+      <!-- Left Panel: Categories & Menu -->
+      <div class="left-panel">
+        <!-- Category Tabs -->
+        <div class="category-tabs">
+          <button class="category-tab" :class="{ 'active': selectedCategory === 'all' }"
+            @click="selectedCategory = 'all'">All</button>
+          <template x-for="cat in categories" :key="cat.id">
+            <button class="category-tab" :class="{ 'active': selectedCategory == cat.id }"
+              @click="selectedCategory = cat.id" x-text="cat.icon + ' ' + cat.name"></button>
+          </template>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="search-container">
+          <input type="text" x-model.debounce.300ms="searchQuery" placeholder="🔍 Search menu items...">
+        </div>
+
+        <!-- Menu Grid -->
+        <div class="menu-grid">
+          <template x-for="item in filteredItems" :key="item.id">
+            <div class="menu-item" :class="{ 'unavailable': !item.is_available }"
+              @click="item.is_available && addToCart(item)" tabindex="0" role="button"
+              :aria-label="'Add ' + item.name + ' to cart - Price ' + formatCurrency(item.price)"
+              @keydown.enter="item.is_available && addToCart(item)"
+              @keydown.space.prevent="item.is_available && addToCart(item)">
+              <div class="menu-item-content">
+                <div class="menu-item-icon" x-text="item.category_icon || '🍽️'" aria-hidden="true"></div>
+                <div class="menu-item-info">
+                  <div class="menu-item-name" x-text="item.name"></div>
+                  <div class="menu-item-price" x-text="formatCurrency(item.price)"></div>
+                </div>
+              </div>
+
+              <!-- Stock Indicator -->
+              <div class="menu-item-stock" x-show="item.stock_quantity !== null"
+                style="position: absolute; top: 8px; right: 8px; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; z-index: 2;"
+                :style="item.stock_quantity < 5 ? 'background: #ef4444; color: white;' : 'background: rgba(0,0,0,0.6); color: white;'">
+                <span x-text="item.stock_quantity + ' left'"></span>
+              </div>
+            </div>
+          </template>
+          <div x-show="filteredItems.length === 0" class="empty-menu">
+            <span>🔍</span>
+            <p>No items found</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Panel: Cart & Billing -->
+      <div class="right-panel">
+        <!-- Cart Panel -->
+        <div class="cart-panel">
+          <div class="cart-header">
+            <h3>🛒 Current Order</h3>
+            <button class="btn btn-small btn-danger" @click="clearCart()" x-show="cart.length > 0">Clear</button>
+          </div>
+          <div class="cart-items">
+            <template x-for="item in cart" :key="item.id">
+              <div class="cart-item">
+                <div class="cart-item-info">
+                  <div class="cart-item-name" x-text="item.name"></div>
+                  <div class="cart-item-price" x-text="formatCurrency(item.price) + ' each'"></div>
+                  <input type="text" class="cart-item-notes" x-model="item.notes" placeholder="Add note..." @click.stop>
+                </div>
+                <div class="cart-item-qty">
+                  <button class="qty-btn" @click="updateQuantity(item.id, item.quantity - 1)"
+                    aria-label="Decrease quantity">−</button>
+                  <span class="qty-value" x-text="item.quantity"></span>
+                  <button class="qty-btn" @click="updateQuantity(item.id, item.quantity + 1)"
+                    aria-label="Increase quantity">+</button>
+                </div>
+                <div class="cart-item-total" x-text="formatCurrency(item.total)"></div>
+                <button class="cart-item-remove" @click="removeFromCart(item.id)" aria-label="Remove item">×</button>
+              </div>
+            </template>
+            <div x-show="cart.length === 0" class="empty-cart">
+              <span>🛒</span>
+              <p>Cart is empty</p>
+              <p class="hint">Add items from the menu</p>
+            </div>
+          </div>
+
+          <!-- Order Notes -->
+          <div class="order-notes" x-show="cart.length > 0">
+            <label>Order Notes</label>
+            <input type="text" x-model="orderNotes" placeholder="e.g., No sugar, extra cheese...">
+          </div>
+        </div>
+
+        <!-- Customer Section -->
+        <div class="cart-customer-section"
+          style="padding: 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
+          <div x-show="!selectedCustomer" style="position: relative;">
+            <div style="display: flex; gap: 8px;">
+              <input type="text" x-model="customerSearchQuery" @input.debounce.300ms="searchCustomers()"
+                placeholder="📱 Customer Phone / Name" style="flex: 1;">
+              <button class="btn btn-secondary" @click="showAddCustomerForm = true">+</button>
+            </div>
+            <!-- Search Results Dropdown -->
+            <div class="search-results" x-show="showCustomerResults && customerSearchResults.length > 0"
+              @click.away="showCustomerResults = false"
+              style="position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); z-index: 10; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+              <template x-for="cx in customerSearchResults" :key="cx.id">
+                <div class="search-result-item" @click="selectCustomer(cx)"
+                  style="padding: 8px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
+                  <div x-text="cx.name" style="font-weight: bold;"></div>
+                  <div x-text="cx.phone" style="font-size: 12px; color: var(--text-muted);"></div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Selected Customer Display -->
+          <div x-show="selectedCustomer"
+            style="display: flex; justify-content: space-between; align-items: center; background: rgba(var(--primary-rgb), 0.1); padding: 8px; border-radius: 4px; border: 1px solid var(--primary-color);">
+            <div>
+              <div style="font-size: 12px; color: var(--primary-color);">Customer</div>
+              <div x-text="selectedCustomer?.name || 'Unknown'" style="font-weight: bold;"></div>
+              <div x-text="selectedCustomer?.phone" style="font-size: 12px;"></div>
+            </div>
+            <button @click="clearCustomer()"
+              style="background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted);">×</button>
+          </div>
+
+          <!-- Add Customer Inline Form -->
+          <div x-show="showAddCustomerForm"
+            style="margin-top: 10px; padding: 10px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px;">
+            <h4 style="margin-bottom: 8px;">New Customer</h4>
+            <input type="text" x-model="newCustomer.phone" placeholder="Phone" style="margin-bottom: 8px; width: 100%;">
+            <input type="text" x-model="newCustomer.name" placeholder="Name" style="margin-bottom: 8px; width: 100%;">
+            <div style="display: flex; gap: 8px;">
+              <button class="btn btn-primary btn-small" @click="createCustomer()">Save</button>
+              <button class="btn btn-secondary btn-small" @click="showAddCustomerForm = false">Cancel</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bill Summary -->
+        <div class="bill-summary">
+          <div class="bill-row">
+            <span>Subtotal</span>
+            <span x-text="formatCurrency(subtotal)"></span>
+          </div>
+          <div class="bill-row discount-row">
+            <span>Discount</span>
+            <div class="discount-input-group">
+              <input type="number" x-model.number="discountValue" min="0" step="1" @input="calculateTotals()">
+              <select x-model="discountType" @change="calculateTotals()">
+                <option value="fixed">₹</option>
+                <option value="percentage">%</option>
+              </select>
+            </div>
+            <span x-text="'-' + formatCurrency(discountAmount)"></span>
+          </div>
+          <div class="bill-row">
+            <span x-text="'Tax (' + appSettings.tax_rate + '% GST)'">Tax (9% GST)</span>
+            <span x-text="formatCurrency(taxAmount)"></span>
+          </div>
+          <div class="bill-row total-row">
+            <span>Total</span>
+            <span x-text="formatCurrency(totalAmount)"></span>
+          </div>
+        </div>
+
+        <!-- Payment Section -->
+        <div class="payment-section">
+          <div class="payment-modes">
+            <button class="payment-mode" :class="{ 'active': paymentMode === 'cash' }" @click="paymentMode = 'cash'"
+              role="tab" :aria-selected="paymentMode === 'cash'">💵 Cash</button>
+            <button class="payment-mode" :class="{ 'active': paymentMode === 'upi' }" @click="paymentMode = 'upi'"
+              role="tab" :aria-selected="paymentMode === 'upi'">📱 UPI</button>
+            <button class="payment-mode" :class="{ 'active': paymentMode === 'card' }" @click="paymentMode = 'card'"
+              role="tab" :aria-selected="paymentMode === 'card'">💳 Card</button>
+          </div>
+          <div class="action-buttons">
+            <button class="btn btn-secondary btn-full" @click="sendToKitchen()">📤 Send to Kitchen</button>
+            <button class="btn btn-primary btn-full" @click="checkout()">💰 Checkout & Print</button>
+          </div>
+        </div>
+      </div>
+    </main>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal" :class="{ 'active': showSettings }">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>⚙️ Settings</h2>
+          <button class="btn btn-icon" @click="showSettings = false">✕</button>
+        </div>
+        <div class="settings-content">
+          <div class="action-buttons">
+            <button class="btn btn-secondary btn-full" @click="showMenuManagement = true; showSettings = false">🍽️ Menu
+              Management</button>
+            <button class="btn btn-secondary btn-full"
+              @click="loadUsers(); showUserManagement = true; showSettings = false">👥 User Management</button>
+          </div>
+
+          <hr class="divider">
+
+          <!-- Configuration Section -->
+          <h3 style="margin-bottom: 12px; font-size: 16px;">General Settings</h3>
+          <div class="settings-form" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+            <div class="form-group">
+              <label style="display: block; font-size: 12px; margin-bottom: 4px;">Business Name</label>
+              <input type="text" x-model="appSettings.business_name"
+                style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+            </div>
+            <div class="form-group">
+              <label style="display: block; font-size: 12px; margin-bottom: 4px;">Business Address</label>
+              <input type="text" x-model="appSettings.business_address"
+                style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label style="display: block; font-size: 12px; margin-bottom: 4px;">Tax Rate (%)</label>
+                <input type="number" x-model="appSettings.tax_rate" step="0.01"
+                  style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+              </div>
+              <div class="form-group">
+                <label style="display: block; font-size: 12px; margin-bottom: 4px;">Currency Symbol</label>
+                <input type="text" x-model="appSettings.currency_symbol"
+                  style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+              </div>
+            </div>
+            <button class="btn btn-primary" @click="updateSettings()">💾 Save Settings</button>
+          </div>
+
+          <hr class="divider">
+
+          <!-- Receipt Template Section -->
+          <h3 style="margin-bottom: 12px; font-size: 16px;">Receipt Template</h3>
+          <div class="settings-form" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+            <div class="form-group">
+              <label style="display: block; font-size: 12px; margin-bottom: 4px;">Receipt Header</label>
+              <textarea x-model="appSettings.receipt_header" @input="updateReceiptPreview()" rows="3"
+                style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;"></textarea>
+            </div>
+            <div class="form-group">
+              <label style="display: block; font-size: 12px; margin-bottom: 4px;">Receipt Footer</label>
+              <textarea x-model="appSettings.receipt_footer" @input="updateReceiptPreview()" rows="3"
+                style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;"></textarea>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+              <div class="form-group">
+                <label style="display: block; font-size: 12px; margin-bottom: 4px;">Font Size</label>
+                <select x-model="appSettings.receipt_font_size" @change="updateReceiptPreview()"
+                  style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+                  <option value="10px">Small (10px)</option>
+                  <option value="12px">Normal (12px)</option>
+                  <option value="14px">Large (14px)</option>
+                  <option value="16px">Extra Large (16px)</option>
+                </select>
+              </div>
+              <div class="form-group checkbox-group" style="padding-top: 20px;">
+                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                  <input type="checkbox" x-model="appSettings.receipt_show_logo"
+                    :checked="appSettings.receipt_show_logo === 'true'"
+                    @change="appSettings.receipt_show_logo = $event.target.checked ? 'true' : 'false'; updateReceiptPreview()">
+                  Show Logo
+                </label>
+              </div>
+            </div>
+
+            <!-- Receipt Preview -->
+            <div class="receipt-preview-container"
+              style="margin-top: 10px; padding: 10px; background: #fff; color: #000; border: 1px dashed #ccc; border-radius: 4px; transform: scale(0.9); transform-origin: top center;">
+              <p
+                style="text-align: center; font-size: 10px; color: #666; margin-bottom: 5px; border-bottom: 1px solid #eee;">
+                LIVE PREVIEW</p>
+              <div class="bill-preview" x-html="billHtml"></div>
+            </div>
+
+            <button class="btn btn-primary" @click="updateSettings()">💾 Save Template</button>
+          </div>
+
+          <hr class="divider">
+
+          <!-- Data Management Section -->
+          <h3 style="margin-bottom: 12px; font-size: 16px;">Data Management</h3>
+          <div class="data-mgmt-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <!-- Export -->
+            <div class="data-card" style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px;">
+              <h4 style="font-size: 14px; margin-bottom: 8px;">Export Data</h4>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <button class="btn btn-small btn-secondary" @click="exportData('menu-items')">📋 Menu Items
+                  (CSV)</button>
+                <button class="btn btn-small btn-secondary" @click="exportData('orders')">📊 Orders Report
+                  (CSV)</button>
+                <!-- <button class="btn btn-small btn-secondary" @click="exportData('users')">👤 Users (CSV)</button> -->
+              </div>
+            </div>
+
+            <!-- Import -->
+            <div class="data-card" style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px;">
+              <h4 style="font-size: 14px; margin-bottom: 8px;">Import Data</h4>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                <label class="btn btn-small btn-secondary" style="margin: 0; cursor: pointer;">
+                  📥 Import Menu (CSV)
+                  <input type="file" @change="importData($event, 'menu-items')" accept=".csv" style="display: none;">
+                </label>
+                <small style="font-size: 10px; color: var(--text-muted);">Format: category_id, name, price...</small>
+              </div>
+            </div>
+          </div>
+
+          <hr class="divider">
+
+          <!-- System Section -->
+          <h3 style="margin-bottom: 12px; font-size: 16px;">System</h3>
+          <div class="data-mgmt-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            <!-- Backup -->
+            <div class="data-card"
+              style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; background: rgba(59, 130, 246, 0.1);">
+              <h4 style="font-size: 14px; margin-bottom: 8px;">Backup Database</h4>
+              <button class="btn btn-small btn-primary" @click="downloadBackup()">💾 Download Full Backup</button>
+            </div>
+
+            <!-- Restore -->
+            <div class="data-card"
+              style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.1);">
+              <h4 style="font-size: 14px; margin-bottom: 8px;">Restore Database</h4>
+              <label class="btn btn-small btn-danger"
+                style="margin: 0; cursor: pointer; width: 100%; text-align: center;">
+                ⚠️ Restore from File
+                <input type="file" @change="restoreBackup($event)" accept=".json" style="display: none;">
+              </label>
+            </div>
+          </div>
+
+          <hr class="divider">
+
+          <button class="btn btn-danger btn-full" @click="logout()">Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Kitchen View Modal -->
+    <div id="kot-modal" class="modal" :class="{ 'active': showKOT }">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h2>👨‍🍳 Kitchen Order Tickets</h2>
+          <button class="btn btn-icon" @click="showKOT = false">✕</button>
+        </div>
+        <div class="kot-grid">
+          <template x-for="ticket in kotTickets" :key="ticket.id">
+            <div class="kot-ticket" :class="ticket.status">
+              <div class="kot-header">
+                <span class="kot-number" x-text="'#' + ticket.ticket_number"></span>
+                <span class="kot-status" :class="ticket.status" x-text="ticket.status.toUpperCase()"></span>
+              </div>
+              <div class="kot-items">
+                <template x-for="item in ticket.items" :key="item.id">
+                  <div class="kot-item">
+                    <span x-text="item.quantity + 'x ' + item.name"></span>
+                    <span x-show="item.notes" class="kot-item-note" x-text="' (' + item.notes + ')'"></span>
+                  </div>
+                </template>
+              </div>
+              <div x-show="ticket.notes" class="kot-notes" x-text="'Note: ' + ticket.notes"></div>
+              <div class="kot-time" x-text="formatTime(ticket.created_at)"></div>
+              <div class="kot-actions">
+                <button x-show="ticket.status === 'pending'" class="btn btn-small btn-primary"
+                  @click="updateKOTStatus(ticket.id, 'preparing')">Start Preparing</button>
+                <button x-show="ticket.status === 'preparing'" class="btn btn-small btn-success"
+                  @click="updateKOTStatus(ticket.id, 'ready')">Mark Ready</button>
+                <button x-show="ticket.status === 'ready'" class="btn btn-small btn-secondary"
+                  @click="updateKOTStatus(ticket.id, 'served')">Served</button>
+              </div>
+            </div>
+          </template>
+          <div x-show="kotTickets.length === 0" class="empty-kot">
+            <span>👨‍🍳</span>
+            <p>No active kitchen orders</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Order History Modal -->
+    <div id="history-modal" class="modal" :class="{ 'active': showHistory }">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h2>📋 Order History</h2>
+          <button class="btn btn-icon" @click="showHistory = false">✕</button>
+        </div>
+        <div class="history-filters">
+          <button class="btn btn-small" :class="{ 'active': historyFilter === 'today' }"
+            @click="historyFilter = 'today'">Today</button>
+          <button class="btn btn-small" :class="{ 'active': historyFilter === 'all' }"
+            @click="historyFilter = 'all'">All Orders</button>
+          <div class="search-container">
+            <input type="text" x-model.debounce.300ms="orderSearch" placeholder="🔍 Search by order number...">
+          </div>
+        </div>
+        <div class="history-list">
+          <template x-for="order in filteredOrders" :key="order.id">
+            <div class="history-item" @click="showOrderDetails(order)">
+              <div class="history-info">
+                <h4 x-text="order.order_number"></h4>
+                <p x-text="formatDateTime(order.created_at)"></p>
+              </div>
+              <div class="history-amount">
+                <div class="total" x-text="formatCurrency(order.total_amount)"></div>
+                <span class="status" :class="order.payment_status" x-text="order.payment_status.toUpperCase()"></span>
+              </div>
+            </div>
+          </template>
+          <div x-show="filteredOrders.length === 0" class="empty-history">
+            <span>📋</span>
+            <p>No orders found</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Menu Management Modal -->
+    <div id="menu-modal" class="modal" :class="{ 'active': showMenuManagement }">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h2>⚙️ Menu Management</h2>
+          <button class="btn btn-icon" @click="showMenuManagement = false">✕</button>
+        </div>
+        <div class="menu-management">
+          <div class="menu-toolbar">
+            <button class="btn btn-primary" @click="showCategoryForm()">+ Add Category</button>
+            <button class="btn btn-primary" @click="showItemForm()">+ Add Menu Item</button>
+          </div>
+          <div class="menu-tabs">
+            <button class="menu-tab" :class="{ 'active': menuTab === 'categories' }"
+              @click="menuTab = 'categories'">Categories</button>
+            <button class="menu-tab" :class="{ 'active': menuTab === 'items' }" @click="menuTab = 'items'">Menu
+              Items</button>
+          </div>
+          <div class="menu-content">
+            <!-- Categories Table -->
+            <table x-show="menuTab === 'categories'">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Icon</th>
+                  <th>Name</th>
+                  <th>Order</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="cat in categories" :key="cat.id">
+                  <tr>
+                    <td x-text="cat.id"></td>
+                    <td x-text="cat.icon"></td>
+                    <td x-text="cat.name"></td>
+                    <td x-text="cat.display_order"></td>
+                    <td class="menu-actions">
+                      <button class="btn btn-small btn-secondary" @click="editCategory(cat)">Edit</button>
+                      <button class="btn btn-small btn-danger" @click="deleteCategory(cat.id)">Delete</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <!-- Items Table -->
+            <table x-show="menuTab === 'items'">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Name</th>
+                  <th>Category</th>
+                  <th>Price</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="item in allItems" :key="item.id">
+                  <tr>
+                    <td x-text="item.id"></td>
+                    <td x-text="item.name"></td>
+                    <td x-text="item.category_name"></td>
+                    <td x-text="formatCurrency(item.price)"></td>
+                    <td>
+                      <button class="status-toggle" :class="item.is_available ? 'available' : 'unavailable'"
+                        @click="toggleItemAvailability(item.id)"
+                        x-text="item.is_available ? 'Available' : 'Unavailable'"></button>
+                    </td>
+                    <td class="menu-actions">
+                      <button class="btn btn-small btn-secondary" @click="editItem(item)">Edit</button>
+                      <button class="btn btn-small btn-danger" @click="deleteItem(item.id)">Delete</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Category Form Modal -->
+    <div id="category-form-modal" class="modal" :class="{ 'active': showCategoryFormModal }">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 x-text="editingCategory ? 'Edit Category' : 'Add Category'"></h2>
+          <button class="btn btn-icon" @click="showCategoryFormModal = false">✕</button>
+        </div>
+        <form @submit.prevent="saveCategory()">
+
+          <div class="form-group">
+            <label>Category Name</label>
+            <input type="text" x-model="categoryForm.name" required>
+          </div>
+          <div class="form-group">
+            <label>Display Order</label>
+            <input type="number" x-model.number="categoryForm.display_order">
+          </div>
+          <div class="form-group">
+            <label>Icon (Emoji)</label>
+            <input type="text" x-model="categoryForm.icon" placeholder="☕">
+          </div>
+          <div class="form-actions">
+            <button type="button" class="btn btn-secondary" @click="showCategoryFormModal = false">Cancel</button>
+            <button type="submit" class="btn btn-primary">Save Category</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reports Modal -->
+  <div id="reports-modal" class="modal" :class="{ 'active': showReports }">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>📊 Business Reports</h2>
+        <button class="btn btn-icon" @click="showReports = false">✕</button>
+      </div>
+
+      <div class="report-controls"
+        style="display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
+        <div class="date-range" style="display: flex; gap: 8px; align-items: center;">
+          <input type="date" x-model="reportDateRange.start">
+          <span>to</span>
+          <input type="date" x-model="reportDateRange.end">
+          <button class="btn btn-primary" @click="generateReport()">Go</button>
+        </div>
+        <div class="quick-filters" style="display: flex; gap: 8px;">
+          <button class="btn btn-small btn-secondary" @click="setReportRange('today')">Today</button>
+          <button class="btn btn-small btn-secondary" @click="setReportRange('yesterday')">Yesterday</button>
+          <button class="btn btn-small btn-secondary" @click="setReportRange('week')">Last 7 Days</button>
+          <button class="btn btn-small btn-secondary" @click="setReportRange('month')">Last 30 Days</button>
+        </div>
+        <div style="margin-left: auto;">
+          <button class="btn btn-secondary" @click="exportData('orders')">📥 Export CSV</button>
+        </div>
+      </div>
+
+      <div class="report-dashboard">
+        <!-- Summary Cards -->
+        <div class="report-summary-cards"
+          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px;">
+          <div class="card stat-card"
+            style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
+            <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Total Sales</h3>
+            <div style="font-size: 24px; font-weight: bold; color: var(--primary-color);"
+              x-text="formatCurrency(reportData.summary.total_sales)"></div>
+          </div>
+          <div class="card stat-card"
+            style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
+            <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Orders</h3>
+            <div style="font-size: 24px; font-weight: bold;" x-text="reportData.summary.total_orders"></div>
+          </div>
+          <div class="card stat-card"
+            style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
+            <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Tax Collected</h3>
+            <div style="font-size: 24px; font-weight: bold;" x-text="formatCurrency(reportData.summary.total_tax)">
+            </div>
+          </div>
+          <div class="card stat-card"
+            style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
+            <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Discounts</h3>
+            <div style="font-size: 24px; font-weight: bold; color: #ef4444;"
+              x-text="formatCurrency(reportData.summary.total_discount)"></div>
+          </div>
+        </div>
+
+        <div class="report-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+          <!-- Payment Breakdown -->
+          <div class="card" style="background: var(--bg-secondary); padding: 16px; border-radius: 8px;">
+            <h3 style="margin-bottom: 16px;">Payment Breakdown</h3>
+            <div class="payment-list">
+              <template x-for="p in reportData.paymentBreakdown" :key="p.payment_mode">
+                <div
+                  style="display: flex; justify-content: space-between; margin-bottom: 8px; padding: 8px; background: var(--bg-color); border-radius: 4px;">
+                  <span style="text-transform: capitalize;" x-text="p.payment_mode"></span>
+                  <div>
+                    <span x-text="p.count + ' orders'"></span>
+                    <span style="font-weight: bold; margin-left: 8px;" x-text="formatCurrency(p.total)"></span>
+                  </div>
+                </div>
+              </template>
+              <div x-show="reportData.paymentBreakdown.length === 0"
+                style="text-align: center; color: var(--text-muted); padding: 20px;">No data</div>
+            </div>
+          </div>
+
+          <!-- Top Items -->
+          <div class="card" style="background: var(--bg-secondary); padding: 16px; border-radius: 8px;">
+            <h3 style="margin-bottom: 16px;">Top Selling Items</h3>
+            <div class="top-items-list">
+              <template x-for="(item, index) in reportData.topItems" :key="index">
+                <div
+                  style="display: flex; justify-content: space-between; margin-bottom: 8px; padding: 8px; background: var(--bg-color); border-radius: 4px;">
+                  <div style="display: flex; gap: 12px;">
+                    <span style="color: var(--text-muted); width: 20px;" x-text="'#' + (index + 1)"></span>
+                    <span x-text="item.name"></span>
+                  </div>
+                  <div>
+                    <span x-text="item.quantity + ' sold'"></span>
+                    <span style="font-weight: bold; margin-left: 8px;" x-text="formatCurrency(item.revenue)"></span>
+                  </div>
+                </div>
+              </template>
+              <div x-show="reportData.topItems.length === 0"
+                style="text-align: center; color: var(--text-muted); padding: 20px;">No data</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Management Modal -->
+  <div id="user-modal" class="modal" :class="{ 'active': showUserManagement }">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>👥 User Management</h2>
+        <button class="btn btn-icon" @click="showUserManagement = false">✕</button>
+      </div>
+      <div class="menu-management">
+        <div class="menu-toolbar">
+          <button class="btn btn-primary" @click="showUserForm()">+ Add User</button>
+        </div>
+        <div class="menu-content">
+          <table>
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Username</th>
+                <th>Full Name</th>
+                <th>Role</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="user in users" :key="user.id">
+                <tr>
+                  <td x-text="user.id"></td>
+                  <td x-text="user.username"></td>
+                  <td x-text="user.full_name || '-'"></td>
+                  <td>
+                    <span class="badge" :class="user.role === 'admin' ? 'badge-primary' : 'badge-secondary'"
+                      x-text="user.role_name || user.role"></span>
+                  </td>
+                  <td class="menu-actions">
+                    <button class="btn btn-small btn-secondary" @click="showUserForm(user)">Edit</button>
+                    <button class="btn btn-small btn-danger" @click="deleteUser(user.id)">Delete</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Form Modal -->
+  <div id="user-form-modal" class="modal" :class="{ 'active': showUserFormModal }">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 x-text="editingUser ? 'Edit User' : 'Add User'"></h2>
+        <button class="btn btn-icon" @click="showUserFormModal = false">✕</button>
+      </div>
+      <form @submit.prevent="saveUser()">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" x-model="userForm.username" required>
+        </div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" x-model="userForm.full_name">
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select x-model="userForm.role_id" required>
+            <option value="" disabled>Select Role</option>
+            <template x-for="role in roles" :key="role.id">
+              <option :value="role.id" x-text="role.name"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label x-text="editingUser ? 'New PIN (Leave blank to keep current)' : 'PIN'"></label>
+          <input type="password" x-model="userForm.pin" maxlength="4" pattern="\d{4}" title="4 digit PIN"
+            :required="!editingUser">
+          <small class="form-text text-muted">Must be 4 digits.</small>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="showUserFormModal = false">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save User</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Item Form Modal -->
+  <div id="item-form-modal" class="modal" :class="{ 'active': showItemFormModal }">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 x-text="editingItem ? 'Edit Menu Item' : 'Add Menu Item'"></h2>
+        <button class="btn btn-icon" @click="showItemFormModal = false">✕</button>
+      </div>
+      <form @submit.prevent="saveItem()">
+
+        <div class="form-group">
+          <label>Item Name</label>
+          <input type="text" x-model="itemForm.name" required>
+        </div>
+        <div class="form-group">
+          <label>Category</label>
+          <select x-model="itemForm.category_id" required>
+            <template x-for="cat in categories" :key="cat.id">
+              <option :value="cat.id" x-text="cat.icon + ' ' + cat.name"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-group">
+          <label>Price (₹)</label>
+          <input type="number" x-model.number="itemForm.price" required min="0" step="1">
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea x-model="itemForm.description" rows="2"></textarea>
+        </div>
+        <div class="form-group">
+          <label>Stock Quantity</label>
+          <input type="number" x-model.number="itemForm.stock_quantity">
+          <small class="form-text text-muted">Items will be deducted automatically.</small>
+        </div>
+        <div class="form-group checkbox-group">
+          <label>
+            <input type="checkbox" x-model="itemForm.is_available">
+            Available
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="showItemFormModal = false">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Item</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Bill Print Preview Modal -->
+  <div id="bill-modal" class="modal" :class="{ 'active': showBill }">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>🧾 Bill Preview</h2>
+        <button class="btn btn-icon" @click="showBill = false">✕</button>
+      </div>
+      <div class="bill-preview" x-html="billHtml"></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" @click="showBill = false">Close</button>
+        <button type="button" class="btn btn-primary" @click="printBill()">🖨️ Print Bill</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Order Details Modal -->
+  <div id="order-details-modal" class="modal" :class="{ 'active': showOrderDetailsModal }">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📋 Order Details</h2>
+        <button class="btn btn-icon" @click="showOrderDetailsModal = false">✕</button>
+      </div>
+      <div class="order-details" x-html="orderDetailsHtml"></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-secondary" @click="showOrderDetailsModal = false">Close</button>
+        <button type="button" class="btn btn-primary" @click="reprintBill()">🖨️ Reprint Bill</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =================== MVP MODALS =================== -->
+
+  <!-- User Management Modal -->
+  <div id="user-management-modal" class="modal" :class="{ 'active': showUserManagement }">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>👥 User Management</h2>
+        <button class="btn btn-icon" @click="showUserManagement = false">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="toolbar">
+          <button class="btn btn-primary" @click="showUserForm()">➕ Add User</button>
+        </div>
+        <div class="users-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Full Name</th>
+                <th>Role</th>
+                <th>Last Login</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="user in users" :key="user.id">
+                <tr>
+                  <td x-text="user.username"></td>
+                  <td x-text="user.full_name"></td>
+                  <td x-text="user.role_name"></td>
+                  <td x-text="formatDateTime(user.last_login)"></td>
+                  <td>
+                    <button class="btn btn-small btn-secondary" @click="showUserForm(user)">Edit</button>
+                    <button class="btn btn-small btn-danger" @click="deleteUser(user.id)"
+                      x-show="user.id !== currentUser.id">Delete</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User Form Modal -->
+  <div id="user-form-modal" class="modal" :class="{ 'active': editingUser !== null }">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 x-text="editingUser ? 'Edit User' : 'Add User'"></h2>
+        <button class="btn btn-icon" @click="editingUser = null">✕</button>
+      </div>
+      <form @submit.prevent="saveUser()">
+        <div class="form-group">
+          <label>Username</label>
+          <input type="text" x-model="userForm.username" required>
+        </div>
+        <div class="form-group">
+          <label>Full Name</label>
+          <input type="text" x-model="userForm.full_name" required>
+        </div>
+        <div class="form-group">
+          <label>PIN (4 digits)</label>
+          <input type="password" x-model="userForm.pin" maxlength="4" pattern="[0-9]{4}" required>
+        </div>
+        <div class="form-group">
+          <label>Password (optional)</label>
+          <input type="password" x-model="userForm.password">
+        </div>
+        <div class="form-group">
+          <label>Role</label>
+          <select x-model="userForm.role_id" required>
+            <template x-for="role in roles" :key="role.id">
+              <option :value="role.id" x-text="role.name"></option>
+            </template>
+          </select>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="editingUser = null">Cancel</button>
+          <button type="submit" class="btn btn-primary" x-text="editingUser ? 'Update User' : 'Create User'"></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Customer Management Modal -->
+  <div id="customer-management-modal" class="modal" :class="{ 'active': showCustomerManagement }">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>👤 Customer Management</h2>
+        <button class="btn btn-icon" @click="showCustomerManagement = false">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="toolbar">
+          <button class="btn btn-primary"
+            @click="selectedCustomer = {}; customerForm = { name: '', phone: '', email: '', notes: '' }">➕ Add
+            Customer</button>
+        </div>
+        <div class="customers-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Phone</th>
+                <th>Email</th>
+                <th>Total Orders</th>
+                <th>Total Spent</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <template x-for="customer in customers" :key="customer.id">
+                <tr>
+                  <td x-text="customer.name"></td>
+                  <td x-text="customer.phone"></td>
+                  <td x-text="customer.email"></td>
+                  <td x-text="customer.total_orders"></td>
+                  <td x-text="formatCurrency(customer.total_spent)"></td>
+                  <td>
+                    <button class="btn btn-small btn-secondary"
+                      @click="selectedCustomer = customer; customerForm = { name: customer.name, phone: customer.phone, email: customer.email, notes: customer.notes }">Edit</button>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Customer Form Modal -->
+  <div id="customer-form-modal" class="modal" :class="{ 'active': selectedCustomer !== null }">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 x-text="selectedCustomer?.id ? 'Edit Customer' : 'Add Customer'"></h2>
+        <button class="btn btn-icon" @click="selectedCustomer = null">✕</button>
+      </div>
+      <form @submit.prevent="saveCustomer()">
+        <div class="form-group">
+          <label>Name</label>
+          <input type="text" x-model="customerForm.name">
+        </div>
+        <div class="form-group">
+          <label>Phone</label>
+          <input type="tel" x-model="customerForm.phone" required>
+        </div>
+        <div class="form-group">
+          <label>Email</label>
+          <input type="email" x-model="customerForm.email">
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea x-model="customerForm.notes" rows="3"></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="selectedCustomer = null">Cancel</button>
+          <button type="submit" class="btn btn-primary"
+            x-text="selectedCustomer?.id ? 'Update Customer' : 'Create Customer'"></button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Inventory Management Modal -->
+  <div id="inventory-management-modal" class="modal" :class="{ 'active': showInventoryManagement }">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>📦 Inventory Management</h2>
+        <button class="btn btn-icon" @click="showInventoryManagement = false">✕</button>
+      </div>
+      <div class="modal-body">
+        <h3>Low Stock Items</h3>
+        <div class="low-stock-items">
+          <template x-for="item in lowStockItems" :key="item.id">
+            <div class="stock-item">
+              <div class="item-info">
+                <h4 x-text="item.name"></h4>
+                <p>Category: <span x-text="item.category_name"></span></p>
+                <p>Current Stock: <span x-text="item.stock_quantity"></span></p>
+                <p>Threshold: <span x-text="item.low_stock_threshold"></span></p>
+              </div>
+              <div class="stock-actions">
+                <input type="number" x-model="stockAdjustment.quantity" placeholder="Quantity">
+                <input type="text" x-model="stockAdjustment.reason" placeholder="Reason">
+                <button class="btn btn-primary" @click="adjustStock(item.id)">Adjust Stock</button>
+              </div>
+            </div>
+          </template>
+          <div x-show="lowStockItems.length === 0" class="empty-state">
+            <p>No low stock items</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reports Modal -->
+  <div id="reports-modal-mvp" class="modal" :class="{ 'active': showReportsModal }">
+    <div class="modal-content modal-large">
+      <div class="modal-header">
+        <h2>📊 Reports</h2>
+        <button class="btn btn-icon" @click="showReportsModal = false">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="report-controls">
+          <div class="form-group">
+            <label>Report Type</label>
+            <select x-model="reportType">
+              <option value="daily">Daily Summary</option>
+              <option value="sales">Sales Report</option>
+              <option value="top-items">Top Selling Items</option>
+              <option value="tax">Tax Report</option>
+              <option value="payment">Payment Breakdown</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Start Date</label>
+            <input type="date" x-model="reportStartDate">
+          </div>
+          <div class="form-group">
+            <label>End Date</label>
+            <input type="date" x-model="reportEndDate">
+          </div>
+          <div class="form-actions">
+            <button class="btn btn-primary" @click="generateReport()" :disabled="reportLoading">
+              <span x-show="!reportLoading">Generate Report</span>
+              <span x-show="reportLoading">Loading...</span>
+            </button>
+            <button class="btn btn-secondary" @click="exportReport(reportType)" x-show="reportData">Export CSV</button>
+          </div>
+        </div>
+        <div class="report-results" x-show="reportData">
+          <div x-show="reportType === 'daily'" class="daily-summary">
+            <h3>Daily Summary</h3>
+            <div class="summary-cards">
+              <div class="summary-card">
+                <h4>Total Orders</h4>
+                <p x-text="reportData?.total_orders || 0"></p>
+              </div>
+              <div class="summary-card">
+                <h4>Total Sales</h4>
+                <p x-text="formatCurrency(reportData?.total_sales || 0)"></p>
+              </div>
+              <div class="summary-card">
+                <h4>Total Tax</h4>
+                <p x-text="formatCurrency(reportData?.total_tax || 0)"></p>
+              </div>
+              <div class="summary-card">
+                <h4>Average Order</h4>
+                <p x-text="formatCurrency(reportData?.average_order_value || 0)"></p>
+              </div>
+            </div>
+          </div>
+          <div x-show="reportType !== 'daily'" class="report-table">
+            <table>
+              <thead>
+                <tr x-show="reportType === 'sales'">
+                  <th>Payment Mode</th>
+                  <th>Orders</th>
+                  <th>Total Sales</th>
+                  <th>Tax</th>
+                  <th>Discounts</th>
+                </tr>
+                <tr x-show="reportType === 'top-items'">
+                  <th>Item</th>
+                  <th>Quantity Sold</th>
+                  <th>Revenue</th>
+                  <th>Orders</th>
+                </tr>
+                <tr x-show="reportType === 'tax'">
+                  <th>Date</th>
+                  <th>Taxable Amount</th>
+                  <th>Tax Collected</th>
+                  <th>Tax Rate</th>
+                </tr>
+                <tr x-show="reportType === 'payment'">
+                  <th>Payment Mode</th>
+                  <th>Transactions</th>
+                  <th>Total Amount</th>
+                  <th>Average</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="row in reportData" :key="row">
+                  <tr x-show="reportType === 'sales'">
+                    <td x-text="row.payment_mode"></td>
+                    <td x-text="row.payment_count"></td>
+                    <td x-text="formatCurrency(row.total_sales)"></td>
+                    <td x-text="formatCurrency(row.total_tax)"></td>
+                    <td x-text="formatCurrency(row.total_discounts)"></td>
+                  </tr>
+                  <tr x-show="reportType === 'top-items'">
+                    <td x-text="row.name"></td>
+                    <td x-text="row.total_quantity"></td>
+                    <td x-text="formatCurrency(row.total_revenue)"></td>
+                    <td x-text="row.order_count"></td>
+                  </tr>
+                  <tr x-show="reportType === 'tax'">
+                    <td x-text="row.date"></td>
+                    <td x-text="formatCurrency(row.taxable_amount)"></td>
+                    <td x-text="formatCurrency(row.tax_collected)"></td>
+                    <td x-text="row.tax_rate + '%'"></td>
+                  </tr>
+                  <tr x-show="reportType === 'payment'">
+                    <td x-text="row.payment_mode"></td>
+                    <td x-text="row.transaction_count"></td>
+                    <td x-text="formatCurrency(row.total_amount)"></td>
+                    <td x-text="formatCurrency(row.average_amount)"></td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Backup/Restore Section -->
+  <div class="backup-section" x-show="hasPermission('manage_settings')"
+    style="position: fixed; bottom: 20px; left: 20px; background: var(--card-bg); padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px var(--shadow-color);">
+    <h4>Backup & Restore</h4>
+    <div class="backup-actions">
+      <button class="btn btn-small btn-secondary" @click="downloadBackup()">💾 Download Backup</button>
+      <input type="file" id="restore-file" accept=".json" @change="restoreBackup($event)" style="display: none;">
+      <button class="btn btn-small btn-secondary" @click="document.getElementById('restore-file').click()">📥 Restore
+        Backup</button>
+    </div>
+  </div>
+  </div>
+
+  <!-- Alpine.js Application Logic -->
+  <!-- Toast Container -->
+  <div id="toast-container">
+    <template x-for="toast in toasts" :key="toast.id">
+      <div class="toast" :class="toast.type" x-show="toast.visible" x-transition:leave="transition ease-in duration-300"
+        x-transition:leave-start="opacity-100 transform translate-x-0"
+        x-transition:leave-end="opacity-0 transform translate-x-full">
+        <span x-text="toast.message"></span>
+        <button @click="removeToast(toast.id)"
+          style="background:none; border:none; color:inherit; cursor:pointer; font-size:16px;">&times;</button>
+      </div>
+    </template>
+  </div>
+
+  <script src="js/app-alpine.js"></script>
+</body>
+
+</html>
