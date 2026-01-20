@@ -26,11 +26,16 @@
         <form @submit.prevent="login()">
           <div class="pin-container">
             <label>Enter PIN</label>
-            <div class="pin-inputs">
-              <template x-for="i in 4" :key="i">
-                <input type="password" maxlength="1" class="pin-digit" x-model="pin[i-1]"
-                  @input="handlePinInput($event, i-1)" @keydown="handlePinKeydown($event, i-1)" :autofocus="i===1">
-              </template>
+            <div class="pin-wrapper" @click="$refs.loginPin.focus()">
+              <input type="password" maxlength="4" class="hidden-pin-input" x-ref="loginPin"
+                x-model="pinString" @input="if(pinString.length === 4) login()" autofocus>
+              <div class="pin-display">
+                <template x-for="i in 4" :key="i">
+                  <div class="pin-box" :class="{ 'filled': pinString.length >= i }">
+                    <span x-show="pinString.length >= i">●</span>
+                  </div>
+                </template>
+              </div>
             </div>
           </div>
           <button type="submit" class="btn btn-primary btn-full">Login</button>
@@ -49,11 +54,16 @@
       <p>Enter PIN to continue</p>
       <form @submit.prevent="unlock()">
         <div class="pin-container">
-          <div class="pin-inputs">
-            <template x-for="i in 4" :key="i">
-              <input type="password" maxlength="1" class="pin-digit" x-model="lockPin[i-1]"
-                @input="handleLockPinInput($event, i-1)" @keydown="handlePinKeydown($event, i-1)">
-            </template>
+          <div class="pin-wrapper" @click="$refs.lockPin.focus()">
+            <input type="password" maxlength="4" class="hidden-pin-input" x-ref="lockPin"
+              x-model="lockPinString" @input="if(lockPinString.length === 4) unlock()">
+            <div class="pin-display">
+              <template x-for="i in 4" :key="i">
+                <div class="pin-box" :class="{ 'filled': lockPinString.length >= i }">
+                  <span x-show="lockPinString.length >= i">●</span>
+                </div>
+              </template>
+            </div>
           </div>
         </div>
         <button type="submit" class="btn btn-primary btn-full">Unlock</button>
@@ -189,7 +199,6 @@
 
               <!-- Stock Indicator -->
               <div class="menu-item-stock" x-show="item.stock_quantity !== null"
-                style="position: absolute; top: 8px; right: 8px; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; z-index: 2;"
                 :style="item.stock_quantity < 5 ? 'background: #ef4444; color: white;' : 'background: rgba(0,0,0,0.6); color: white;'">
                 <span x-text="item.stock_quantity + ' left'"></span>
               </div>
@@ -244,47 +253,40 @@
         </div>
 
         <!-- Customer Section -->
-        <div class="cart-customer-section"
-          style="padding: 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
-          <div x-show="!selectedCustomer" style="position: relative;">
-            <div style="display: flex; gap: 8px;">
+        <div class="cart-customer-section">
+          <div x-show="!selectedCustomer" class="customer-search-container">
+            <div class="customer-search-wrapper">
               <input type="text" x-model="customerSearchQuery" @input.debounce.300ms="searchCustomers()"
-                placeholder="📱 Customer Phone / Name" style="flex: 1;">
+                placeholder="📱 Customer Phone / Name" class="customer-search-input">
               <button class="btn btn-secondary" @click="showAddCustomerForm = true">+</button>
             </div>
             <!-- Search Results Dropdown -->
-            <div class="search-results" x-show="showCustomerResults && customerSearchResults.length > 0"
-              @click.away="showCustomerResults = false"
-              style="position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); z-index: 10; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+            <div class="search-results" x-show="showCustomerResults && customerSearchResults.length > 0" @click.away="showCustomerResults = false">
               <template x-for="cx in customerSearchResults" :key="cx.id">
-                <div class="search-result-item" @click="selectCustomer(cx)"
-                  style="padding: 8px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
-                  <div x-text="cx.name" style="font-weight: bold;"></div>
-                  <div x-text="cx.phone" style="font-size: 12px; color: var(--text-muted);"></div>
+                <div class="search-result-item" @click="selectCustomer(cx)">
+                  <div class="search-result-name" x-text="cx.name"></div>
+                  <div class="search-result-phone" x-text="cx.phone"></div>
                 </div>
               </template>
             </div>
           </div>
 
           <!-- Selected Customer Display -->
-          <div x-show="selectedCustomer"
-            style="display: flex; justify-content: space-between; align-items: center; background: rgba(var(--primary-rgb), 0.1); padding: 8px; border-radius: 4px; border: 1px solid var(--primary-color);">
-            <div>
-              <div style="font-size: 12px; color: var(--primary-color);">Customer</div>
-              <div x-text="selectedCustomer?.name || 'Unknown'" style="font-weight: bold;"></div>
-              <div x-text="selectedCustomer?.phone" style="font-size: 12px;"></div>
+          <div x-show="selectedCustomer" class="customer-display">
+            <div class="customer-info">
+              <div>Customer</div>
+              <div class="customer-name" x-text="selectedCustomer?.name || 'Unknown'"></div>
+              <div class="customer-phone" x-text="selectedCustomer?.phone"></div>
             </div>
-            <button @click="clearCustomer()"
-              style="background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted);">×</button>
+            <button class="customer-remove" @click="clearCustomer()">×</button>
           </div>
 
           <!-- Add Customer Inline Form -->
-          <div x-show="showAddCustomerForm"
-            style="margin-top: 10px; padding: 10px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px;">
-            <h4 style="margin-bottom: 8px;">New Customer</h4>
-            <input type="text" x-model="newCustomer.phone" placeholder="Phone" style="margin-bottom: 8px; width: 100%;">
-            <input type="text" x-model="newCustomer.name" placeholder="Name" style="margin-bottom: 8px; width: 100%;">
-            <div style="display: flex; gap: 8px;">
+          <div x-show="showAddCustomerForm" class="add-customer-form">
+            <h4 class="add-customer-title">New Customer</h4>
+            <input type="text" x-model="newCustomer.phone" placeholder="Phone" class="add-customer-input">
+            <input type="text" x-model="newCustomer.name" placeholder="Name" class="add-customer-input">
+            <div class="add-customer-actions">
               <button class="btn btn-primary btn-small" @click="createCustomer()">Save</button>
               <button class="btn btn-secondary btn-small" @click="showAddCustomerForm = false">Cancel</button>
             </div>
@@ -338,154 +340,290 @@
 
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal" :class="{ 'active': showSettings }">
-      <div class="modal-content">
+      <div class="modal-content modal-large settings-container">
         <div class="modal-header">
           <h2>⚙️ Settings</h2>
           <button class="btn btn-icon" @click="showSettings = false">✕</button>
         </div>
-        <div class="settings-content">
-          <div class="action-buttons">
-            <button class="btn btn-secondary btn-full" @click="showMenuManagement = true; showSettings = false">🍽️ Menu
-              Management</button>
-            <button class="btn btn-secondary btn-full"
-              @click="loadUsers(); showUserManagement = true; showSettings = false">👥 User Management</button>
+        
+        <!-- Tab Navigation -->
+        <div class="settings-tabs" role="tablist">
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'general' }"
+                  @click="activeSettingsTab = 'general'"
+                  aria-selected="${activeSettingsTab === 'general'}"
+                  aria-controls="general-tab-panel">
+            General
+          </button>
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'business' }"
+                  @click="activeSettingsTab = 'business'"
+                  aria-selected="${activeSettingsTab === 'business'}"
+                  aria-controls="business-tab-panel">
+            Business
+          </button>
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'receipt' }"
+                  @click="activeSettingsTab = 'receipt'"
+                  aria-selected="${activeSettingsTab === 'receipt'}"
+                  aria-controls="receipt-tab-panel">
+            Receipt
+          </button>
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'tax' }"
+                  @click="activeSettingsTab = 'tax'"
+                  aria-selected="${activeSettingsTab === 'tax'}"
+                  aria-controls="tax-tab-panel">
+            Tax
+          </button>
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'data' }"
+                  @click="activeSettingsTab = 'data'"
+                  aria-selected="${activeSettingsTab === 'data'}"
+                  aria-controls="data-tab-panel">
+            Data
+          </button>
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'system' }"
+                  @click="activeSettingsTab = 'system'"
+                  aria-selected="${activeSettingsTab === 'system'}"
+                  aria-controls="system-tab-panel">
+            System
+          </button>
+        </div>
+        
+        <!-- Tab Content: General -->
+        <div class="settings-tab-content" role="tabpanel" id="general-tab-panel"
+             aria-labelledby="general-tab"
+             :class="{ 'active': activeSettingsTab === 'general' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>Application Settings</h3>
+              <p class="settings-section-description">Configure general application preferences</p>
+            </div>
+            
+            <div class="form-group">
+              <label>Theme</label>
+              <select x-model="theme">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+              <span class="form-help">Choose application theme</span>
+              <span class="form-error" x-text="settingsErrors.theme || ''"></span>
+            </div>
+            
+            <div class="form-group">
+              <label>Language</label>
+              <select x-model="language">
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+              </select>
+              <span class="form-help">Select display language</span>
+            </div>
           </div>
-
-          <hr class="divider">
-
-          <!-- Configuration Section -->
-          <h3 style="margin-bottom: 12px; font-size: 16px;">General Settings</h3>
-          <div class="settings-form" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
-            <div class="form-group">
-              <label style="display: block; font-size: 12px; margin-bottom: 4px;">Business Name</label>
-              <input type="text" x-model="appSettings.business_name"
-                style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+          
+          <div class="settings-actions">
+            <button class="btn btn-primary" @click="saveGeneralSettings()">Save Settings</button>
+          </div>
+        </div>
+        
+        <!-- Tab Content: Business -->
+        <div class="settings-tab-content" role="tabpanel" id="business-tab-panel"
+             aria-labelledby="business-tab"
+             :class="{ 'active': activeSettingsTab === 'business' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>Business Information</h3>
+              <p class="settings-section-description">Configure your business identity and details</p>
             </div>
+            
             <div class="form-group">
-              <label style="display: block; font-size: 12px; margin-bottom: 4px;">Business Address</label>
-              <input type="text" x-model="appSettings.business_address"
-                style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+              <label>Business Name</label>
+              <input type="text" x-model="appSettings.business_name">
+              <span class="form-help">Your business name displayed on receipts</span>
+              <span class="form-error" x-text="settingsErrors.business_name || ''"></span>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            
+            <div class="form-group">
+              <label>Business Address</label>
+              <textarea x-model="appSettings.business_address"></textarea>
+              <span class="form-help">Address for receipts and customer reference</span>
+            </div>
+            
+            <div class="form-grid">
               <div class="form-group">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px;">Tax Rate (%)</label>
-                <input type="number" x-model="appSettings.tax_rate" step="0.01"
-                  style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+                <label>Currency Symbol</label>
+                <input type="text" x-model="appSettings.currency_symbol">
+                <span class="form-help">Symbol used in pricing</span>
               </div>
               <div class="form-group">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px;">Currency Symbol</label>
-                <input type="text" x-model="appSettings.currency_symbol"
-                  style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+                <label>Currency Code</label>
+                <input type="text" x-model="appSettings.currency_code">
+                <span class="form-help">ISO currency code (e.g., INR, USD)</span>
               </div>
             </div>
-            <button class="btn btn-primary" @click="updateSettings()">💾 Save Settings</button>
           </div>
-
-          <hr class="divider">
-
-          <!-- Receipt Template Section -->
-          <h3 style="margin-bottom: 12px; font-size: 16px;">Receipt Template</h3>
-          <div class="settings-form" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
-            <div class="form-group">
-              <label style="display: block; font-size: 12px; margin-bottom: 4px;">Receipt Header</label>
-              <textarea x-model="appSettings.receipt_header" @input="updateReceiptPreview()" rows="3"
-                style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;"></textarea>
+          
+          <div class="settings-actions">
+            <button class="btn btn-primary" @click="saveBusinessSettings()">Save Settings</button>
+          </div>
+        </div>
+        
+        <!-- Tab Content: Receipt -->
+        <div class="settings-tab-content" role="tabpanel" id="receipt-tab-panel"
+             aria-labelledby="receipt-tab"
+             :class="{ 'active': activeSettingsTab === 'receipt' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>Receipt Template</h3>
+              <p class="settings-section-description">Customize your receipt appearance</p>
             </div>
+            
             <div class="form-group">
-              <label style="display: block; font-size: 12px; margin-bottom: 4px;">Receipt Footer</label>
-              <textarea x-model="appSettings.receipt_footer" @input="updateReceiptPreview()" rows="3"
-                style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;"></textarea>
+              <label>Receipt Header</label>
+              <textarea x-model="appSettings.receipt_header" @input="updateReceiptPreview()" rows="4"></textarea>
+              <span class="form-help">Text displayed at the top of receipts</span>
             </div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+            
+            <div class="form-group">
+              <label>Receipt Footer</label>
+              <textarea x-model="appSettings.receipt_footer" @input="updateReceiptPreview()" rows="4"></textarea>
+              <span class="form-help">Text displayed at the bottom of receipts</span>
+            </div>
+            
+            <div class="form-grid">
               <div class="form-group">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px;">Font Size</label>
-                <select x-model="appSettings.receipt_font_size" @change="updateReceiptPreview()"
-                  style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
+                <label>Font Size</label>
+                <select x-model="appSettings.receipt_font_size" @change="updateReceiptPreview()">
                   <option value="10px">Small (10px)</option>
                   <option value="12px">Normal (12px)</option>
                   <option value="14px">Large (14px)</option>
                   <option value="16px">Extra Large (16px)</option>
                 </select>
               </div>
-              <div class="form-group checkbox-group" style="padding-top: 20px;">
-                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                  <input type="checkbox" x-model="appSettings.receipt_show_logo"
-                    :checked="appSettings.receipt_show_logo === 'true'"
-                    @change="appSettings.receipt_show_logo = $event.target.checked ? 'true' : 'false'; updateReceiptPreview()">
-                  Show Logo
-                </label>
+              <div class="form-group">
+                <label>Show Logo</label>
+                <div>
+                  <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                    <input type="checkbox" x-model="appSettings.receipt_show_logo"
+                      :checked="appSettings.receipt_show_logo === 'true'"
+                      @change="appSettings.receipt_show_logo = $event.target.checked ? 'true' : 'false'; updateReceiptPreview()">
+                    Yes
+                  </label>
+                </div>
               </div>
             </div>
-
+            
             <!-- Receipt Preview -->
-            <div class="receipt-preview-container"
-              style="margin-top: 10px; padding: 10px; background: #fff; color: #000; border: 1px dashed #ccc; border-radius: 4px; transform: scale(0.9); transform-origin: top center;">
-              <p
-                style="text-align: center; font-size: 10px; color: #666; margin-bottom: 5px; border-bottom: 1px solid #eee;">
-                LIVE PREVIEW</p>
-              <div class="bill-preview" x-html="billHtml"></div>
-            </div>
-
-            <button class="btn btn-primary" @click="updateSettings()">💾 Save Template</button>
-          </div>
-
-          <hr class="divider">
-
-          <!-- Data Management Section -->
-          <h3 style="margin-bottom: 12px; font-size: 16px;">Data Management</h3>
-          <div class="data-mgmt-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <!-- Export -->
-            <div class="data-card" style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px;">
-              <h4 style="font-size: 14px; margin-bottom: 8px;">Export Data</h4>
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                <button class="btn btn-small btn-secondary" @click="exportData('menu-items')">📋 Menu Items
-                  (CSV)</button>
-                <button class="btn btn-small btn-secondary" @click="exportData('orders')">📊 Orders Report
-                  (CSV)</button>
-                <!-- <button class="btn btn-small btn-secondary" @click="exportData('users')">👤 Users (CSV)</button> -->
+            <div class="settings-section">
+              <h3>Preview</h3>
+              <div class="receipt-preview-container">
+                <p>LIVE PREVIEW</p>
+                <div class="bill-preview" x-html="billHtml"></div>
               </div>
             </div>
-
-            <!-- Import -->
-            <div class="data-card" style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px;">
-              <h4 style="font-size: 14px; margin-bottom: 8px;">Import Data</h4>
-              <div style="display: flex; flex-direction: column; gap: 8px;">
-                <label class="btn btn-small btn-secondary" style="margin: 0; cursor: pointer;">
-                  📥 Import Menu (CSV)
-                  <input type="file" @change="importData($event, 'menu-items')" accept=".csv" style="display: none;">
+          </div>
+          
+          <div class="settings-actions">
+            <button class="btn btn-primary" @click="updateSettings()">Save Template</button>
+          </div>
+        </div>
+        
+        <!-- Tab Content: Tax -->
+        <div class="settings-tab-content" role="tabpanel" id="tax-tab-panel"
+             aria-labelledby="tax-tab"
+             :class="{ 'active': activeSettingsTab === 'tax' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>Tax Configuration</h3>
+              <p class="settings-section-description">Manage tax rates for your business</p>
+            </div>
+            
+            <div class="form-group">
+              <label>Tax Rate (%)</label>
+              <input type="number" x-model="appSettings.tax_rate" step="0.01">
+              <span class="form-help">Applicable tax rate for all transactions</span>
+              <span class="form-error" x-text="settingsErrors.tax_rate || ''"></span>
+            </div>
+          </div>
+          
+          <div class="settings-actions">
+            <button class="btn btn-primary" @click="saveTaxSettings()">Save Tax Settings</button>
+          </div>
+        </div>
+        
+        <!-- Tab Content: Data -->
+        <div class="settings-tab-content" role="tabpanel" id="data-tab-panel"
+             aria-labelledby="data-tab"
+             :class="{ 'active': activeSettingsTab === 'data' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>Data Management</h3>
+              <p class="settings-section-description">Export and import your data</p>
+            </div>
+            
+            <div class="form-grid">
+              <div class="data-card">
+                <h4>Export Data</h4>
+                <div>
+                  <button class="btn btn-small btn-secondary" @click="exportData('menu-items')">📋 Menu Items (CSV)</button>
+                  <button class="btn btn-small btn-secondary" @click="exportData('orders')">📊 Orders Report (CSV)</button>
+                </div>
+              </div>
+              
+              <div class="data-card">
+                <h4>Import Data</h4>
+                <div>
+                  <label class="btn btn-small btn-secondary">
+                    📥 Import Menu (CSV)
+                    <input type="file" @change="importData($event, 'menu-items')" accept=".csv">
+                  </label>
+                  <small class="data-card-small-text">Format: category_id, name, price...</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Tab Content: System -->
+        <div class="settings-tab-content" role="tabpanel" id="system-tab-panel"
+             aria-labelledby="system-tab"
+             :class="{ 'active': activeSettingsTab === 'system' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>System Settings</h3>
+              <p class="settings-section-description">Backup, restore, and advanced options</p>
+            </div>
+            
+            <div class="form-grid">
+              <div class="data-card data-card-blue">
+                <h4>Backup Database</h4>
+                <button class="btn btn-small btn-primary" @click="downloadBackup()">💾 Download Full Backup</button>
+              </div>
+              
+              <div class="data-card data-card-red">
+                <h4>Restore Database</h4>
+                <label class="btn btn-small btn-danger data-card-full-width">
+                  ⚠️ Restore from File
+                  <input type="file" @change="restoreBackup($event)" accept=".json">
                 </label>
-                <small style="font-size: 10px; color: var(--text-muted);">Format: category_id, name, price...</small>
+              </div>
+            </div>
+            
+            <div class="settings-section">
+              <div class="settings-section-header">
+                <h3>Quick Actions</h3>
+              </div>
+              <div class="form-grid">
+                <button class="btn btn-secondary btn-full" @click="showMenuManagement = true; showSettings = false">🍽️ Menu Management</button>
+                <button class="btn btn-secondary btn-full" @click="loadUsers(); showUserManagement = true; showSettings = false">👥 User Management</button>
               </div>
             </div>
           </div>
-
-          <hr class="divider">
-
-          <!-- System Section -->
-          <h3 style="margin-bottom: 12px; font-size: 16px;">System</h3>
-          <div class="data-mgmt-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <!-- Backup -->
-            <div class="data-card"
-              style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; background: rgba(59, 130, 246, 0.1);">
-              <h4 style="font-size: 14px; margin-bottom: 8px;">Backup Database</h4>
-              <button class="btn btn-small btn-primary" @click="downloadBackup()">💾 Download Full Backup</button>
-            </div>
-
-            <!-- Restore -->
-            <div class="data-card"
-              style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.1);">
-              <h4 style="font-size: 14px; margin-bottom: 8px;">Restore Database</h4>
-              <label class="btn btn-small btn-danger"
-                style="margin: 0; cursor: pointer; width: 100%; text-align: center;">
-                ⚠️ Restore from File
-                <input type="file" @change="restoreBackup($event)" accept=".json" style="display: none;">
-              </label>
-            </div>
+          
+          <div class="settings-actions">
+            <button class="btn btn-danger" @click="logout()">Logout</button>
           </div>
-
-          <hr class="divider">
-
-          <button class="btn btn-danger btn-full" @click="logout()">Logout</button>
         </div>
       </div>
     </div>
@@ -689,93 +827,80 @@
         <button class="btn btn-icon" @click="showReports = false">✕</button>
       </div>
 
-      <div class="report-controls"
-        style="display: flex; gap: 12px; margin-bottom: 20px; align-items: center; flex-wrap: wrap;">
-        <div class="date-range" style="display: flex; gap: 8px; align-items: center;">
+      <div class="report-controls">
+        <div class="date-range">
           <input type="date" x-model="reportDateRange.start">
           <span>to</span>
           <input type="date" x-model="reportDateRange.end">
           <button class="btn btn-primary" @click="generateReport()">Go</button>
         </div>
-        <div class="quick-filters" style="display: flex; gap: 8px;">
+        <div class="quick-filters">
           <button class="btn btn-small btn-secondary" @click="setReportRange('today')">Today</button>
           <button class="btn btn-small btn-secondary" @click="setReportRange('yesterday')">Yesterday</button>
           <button class="btn btn-small btn-secondary" @click="setReportRange('week')">Last 7 Days</button>
           <button class="btn btn-small btn-secondary" @click="setReportRange('month')">Last 30 Days</button>
         </div>
-        <div style="margin-left: auto;">
+        <div>
           <button class="btn btn-secondary" @click="exportData('orders')">📥 Export CSV</button>
         </div>
       </div>
 
       <div class="report-dashboard">
         <!-- Summary Cards -->
-        <div class="report-summary-cards"
-          style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 16px; margin-bottom: 24px;">
-          <div class="card stat-card"
-            style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
-            <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Total Sales</h3>
-            <div style="font-size: 24px; font-weight: bold; color: var(--primary-color);"
-              x-text="formatCurrency(reportData.summary.total_sales)"></div>
+        <div class="report-summary-cards">
+          <div class="stat-card">
+            <h3 class="stat-card-title">Total Sales</h3>
+            <div class="stat-card-value" x-text="formatCurrency(reportData.summary.total_sales)"></div>
           </div>
-          <div class="card stat-card"
-            style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
-            <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Orders</h3>
-            <div style="font-size: 24px; font-weight: bold;" x-text="reportData.summary.total_orders"></div>
+          <div class="stat-card">
+            <h3 class="stat-card-title">Orders</h3>
+            <div class="stat-card-value" x-text="reportData.summary.total_orders"></div>
           </div>
-          <div class="card stat-card"
-            style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
-            <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Tax Collected</h3>
-            <div style="font-size: 24px; font-weight: bold;" x-text="formatCurrency(reportData.summary.total_tax)">
-            </div>
+          <div class="stat-card">
+            <h3 class="stat-card-title">Tax Collected</h3>
+            <div class="stat-card-value" x-text="formatCurrency(reportData.summary.total_tax)"></div>
           </div>
-          <div class="card stat-card"
-            style="background: var(--bg-secondary); padding: 16px; border-radius: 8px; text-align: center;">
-            <h3 style="font-size: 14px; color: var(--text-muted); margin-bottom: 8px;">Discounts</h3>
-            <div style="font-size: 24px; font-weight: bold; color: #ef4444;"
-              x-text="formatCurrency(reportData.summary.total_discount)"></div>
+          <div class="stat-card">
+            <h3 class="stat-card-title">Discounts</h3>
+            <div class="stat-card-value" style="color: #ef4444;" x-text="formatCurrency(reportData.summary.total_discount)"></div>
           </div>
         </div>
 
-        <div class="report-details-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div class="report-details-grid">
           <!-- Payment Breakdown -->
-          <div class="card" style="background: var(--bg-secondary); padding: 16px; border-radius: 8px;">
-            <h3 style="margin-bottom: 16px;">Payment Breakdown</h3>
+          <div class="report-card">
+            <h3 class="report-card-title">Payment Breakdown</h3>
             <div class="payment-list">
               <template x-for="p in reportData.paymentBreakdown" :key="p.payment_mode">
-                <div
-                  style="display: flex; justify-content: space-between; margin-bottom: 8px; padding: 8px; background: var(--bg-color); border-radius: 4px;">
-                  <span style="text-transform: capitalize;" x-text="p.payment_mode"></span>
-                  <div>
+                <div class="report-item">
+                  <span class="report-item-name" x-text="p.payment_mode"></span>
+                  <div class="report-item-stats">
                     <span x-text="p.count + ' orders'"></span>
-                    <span style="font-weight: bold; margin-left: 8px;" x-text="formatCurrency(p.total)"></span>
+                    <span class="report-item-bold" x-text="formatCurrency(p.total)"></span>
                   </div>
                 </div>
               </template>
-              <div x-show="reportData.paymentBreakdown.length === 0"
-                style="text-align: center; color: var(--text-muted); padding: 20px;">No data</div>
+              <div x-show="reportData.paymentBreakdown.length === 0" class="report-empty">No data</div>
             </div>
           </div>
 
           <!-- Top Items -->
-          <div class="card" style="background: var(--bg-secondary); padding: 16px; border-radius: 8px;">
-            <h3 style="margin-bottom: 16px;">Top Selling Items</h3>
+          <div class="report-card">
+            <h3 class="report-card-title">Top Selling Items</h3>
             <div class="top-items-list">
               <template x-for="(item, index) in reportData.topItems" :key="index">
-                <div
-                  style="display: flex; justify-content: space-between; margin-bottom: 8px; padding: 8px; background: var(--bg-color); border-radius: 4px;">
-                  <div style="display: flex; gap: 12px;">
+                <div class="report-item">
+                  <div>
                     <span style="color: var(--text-muted); width: 20px;" x-text="'#' + (index + 1)"></span>
                     <span x-text="item.name"></span>
                   </div>
-                  <div>
+                  <div class="report-item-stats">
                     <span x-text="item.quantity + ' sold'"></span>
-                    <span style="font-weight: bold; margin-left: 8px;" x-text="formatCurrency(item.revenue)"></span>
+                    <span class="report-item-bold" x-text="formatCurrency(item.revenue)"></span>
                   </div>
                 </div>
               </template>
-              <div x-show="reportData.topItems.length === 0"
-                style="text-align: center; color: var(--text-muted); padding: 20px;">No data</div>
+              <div x-show="reportData.topItems.length === 0" class="report-empty">No data</div>
             </div>
           </div>
         </div>
@@ -1265,12 +1390,11 @@
   </div>
 
   <!-- Backup/Restore Section -->
-  <div class="backup-section" x-show="hasPermission('manage_settings')"
-    style="position: fixed; bottom: 20px; left: 20px; background: var(--card-bg); padding: 10px; border-radius: 8px; box-shadow: 0 2px 8px var(--shadow-color);">
-    <h4>Backup & Restore</h4>
+  <div class="backup-section" x-show="hasPermission('manage_settings')">
+    <h4 class="backup-title">Backup & Restore</h4>
     <div class="backup-actions">
       <button class="btn btn-small btn-secondary" @click="downloadBackup()">💾 Download Backup</button>
-      <input type="file" id="restore-file" accept=".json" @change="restoreBackup($event)" style="display: none;">
+      <input type="file" id="restore-file" accept=".json" @change="restoreBackup($event)">
       <button class="btn btn-small btn-secondary" @click="document.getElementById('restore-file').click()">📥 Restore
         Backup</button>
     </div>
@@ -1285,8 +1409,7 @@
         x-transition:leave-start="opacity-100 transform translate-x-0"
         x-transition:leave-end="opacity-0 transform translate-x-full">
         <span x-text="toast.message"></span>
-        <button @click="removeToast(toast.id)"
-          style="background:none; border:none; color:inherit; cursor:pointer; font-size:16px;">&times;</button>
+        <button class="toast-close" @click="removeToast(toast.id)">&times;</button>
       </div>
     </template>
   </div>

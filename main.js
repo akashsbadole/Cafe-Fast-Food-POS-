@@ -1,5 +1,11 @@
+// Import required modules
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
+
+console.log('Electron app:', !!app);
+console.log('Electron BrowserWindow:', !!BrowserWindow);
+console.log('Electron ipcMain:', !!ipcMain);
+console.log('Electron screen:', !!screen);
 
 // Start Express server
 const { startServer } = require('./server.js');
@@ -27,12 +33,16 @@ async function createWindow() {
     titleBarStyle: 'default'
   });
 
-  mainWindow.loadFile('index.html');
+  // Load the server URL instead of index.html
+  mainWindow.loadURL('http://127.0.0.1:3000');
 
   mainWindow.webContents.on('did-finish-load', () => {
     mainWindow.webContents.send('app-ready');
     mainWindow.show();
   });
+
+  // Open DevTools for debugging
+  mainWindow.webContents.openDevTools();
 }
 
 // Activity tracking for auto-lock
@@ -50,21 +60,6 @@ function resetLockTimer() {
   }, LOCK_TIMEOUT);
 }
 
-// Track user activity
-ipcMain.on('user-activity', () => {
-  resetLockTimer();
-});
-
-ipcMain.on('unlock-app', () => {
-  isLocked = false;
-  resetLockTimer();
-  mainWindow.webContents.send('app-unlocked');
-});
-
-ipcMain.on('get-lock-status', (event) => {
-  event.reply('lock-status', isLocked);
-});
-
 // Initialize app
 async function initApp() {
   try {
@@ -77,6 +72,21 @@ async function initApp() {
     console.log('Creating Electron window...');
     await createWindow();
     console.log('Electron window created');
+
+    // Register IPC handlers
+    ipcMain.on('user-activity', () => {
+      resetLockTimer();
+    });
+
+    ipcMain.on('unlock-app', () => {
+      isLocked = false;
+      resetLockTimer();
+      mainWindow.webContents.send('app-unlocked');
+    });
+
+    ipcMain.on('get-lock-status', (event) => {
+      event.reply('lock-status', isLocked);
+    });
   } catch (error) {
     console.error('Failed to initialize app:', error);
     process.exit(1);

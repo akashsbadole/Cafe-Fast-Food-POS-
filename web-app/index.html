@@ -222,40 +222,39 @@
         </div>
 
         <!-- Customer Section -->
-        <div class="cart-customer-section" style="padding: 16px; background: var(--bg-secondary); border-bottom: 1px solid var(--border-color);">
-            <div x-show="!selectedCustomer" style="position: relative;">
-                <div style="display: flex; gap: 8px;">
-                    <input type="text" x-model="customerSearchQuery" @input.debounce.300ms="searchCustomers()" placeholder="📱 Customer Phone / Name" style="flex: 1;">
+        <div class="cart-customer-section">
+            <div x-show="!selectedCustomer" class="customer-search-container">
+                <div class="customer-search-wrapper">
+                    <input type="text" x-model="customerSearchQuery" @input.debounce.300ms="searchCustomers()" placeholder="📱 Customer Phone / Name" class="customer-search-input">
                     <button class="btn btn-secondary" @click="showAddCustomerForm = true">+</button>
                 </div>
                 <!-- Search Results Dropdown -->
-                <div class="search-results" x-show="showCustomerResults && customerSearchResults.length > 0" @click.away="showCustomerResults = false" 
-                     style="position: absolute; top: 100%; left: 0; right: 0; background: var(--bg-card); border: 1px solid var(--border-color); z-index: 10; max-height: 200px; overflow-y: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.3);">
+                <div class="search-results" x-show="showCustomerResults && customerSearchResults.length > 0" @click.away="showCustomerResults = false">
                     <template x-for="cx in customerSearchResults" :key="cx.id">
-                        <div class="search-result-item" @click="selectCustomer(cx)" style="padding: 8px; cursor: pointer; border-bottom: 1px solid var(--border-color);">
-                            <div x-text="cx.name" style="font-weight: bold;"></div>
-                            <div x-text="cx.phone" style="font-size: 12px; color: var(--text-muted);"></div>
+                        <div class="search-result-item" @click="selectCustomer(cx)">
+                            <div class="search-result-name" x-text="cx.name"></div>
+                            <div class="search-result-phone" x-text="cx.phone"></div>
                         </div>
                     </template>
                 </div>
             </div>
             
             <!-- Selected Customer Display -->
-            <div x-show="selectedCustomer" style="display: flex; justify-content: space-between; align-items: center; background: rgba(var(--primary-rgb), 0.1); padding: 8px; border-radius: 4px; border: 1px solid var(--primary-color);">
-                <div>
-                    <div style="font-size: 12px; color: var(--primary-color);">Customer</div>
-                    <div x-text="selectedCustomer?.name || 'Unknown'" style="font-weight: bold;"></div>
-                    <div x-text="selectedCustomer?.phone" style="font-size: 12px;"></div>
+            <div x-show="selectedCustomer" class="customer-display">
+                <div class="customer-info">
+                    <div>Customer</div>
+                    <div class="customer-name" x-text="selectedCustomer?.name || 'Unknown'"></div>
+                    <div class="customer-phone" x-text="selectedCustomer?.phone"></div>
                 </div>
-                <button @click="clearCustomer()" style="background: none; border: none; font-size: 18px; cursor: pointer; color: var(--text-muted);">×</button>
+                <button class="customer-remove" @click="clearCustomer()">×</button>
             </div>
             
             <!-- Add Customer Inline Form -->
-            <div x-show="showAddCustomerForm" style="margin-top: 10px; padding: 10px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 4px;">
-                <h4 style="margin-bottom: 8px;">New Customer</h4>
-                <input type="text" x-model="newCustomer.phone" placeholder="Phone" style="margin-bottom: 8px; width: 100%;">
-                <input type="text" x-model="newCustomer.name" placeholder="Name" style="margin-bottom: 8px; width: 100%;">
-                <div style="display: flex; gap: 8px;">
+            <div x-show="showAddCustomerForm" class="add-customer-form">
+                <h4 class="add-customer-title">New Customer</h4>
+                <input type="text" x-model="newCustomer.phone" placeholder="Phone" class="add-customer-input">
+                <input type="text" x-model="newCustomer.name" placeholder="Name" class="add-customer-input">
+                <div class="add-customer-actions">
                     <button class="btn btn-primary btn-small" @click="createCustomer()">Save</button>
                     <button class="btn btn-secondary btn-small" @click="showAddCustomerForm = false">Cancel</button>
                 </div>
@@ -306,95 +305,223 @@
 
     <!-- Settings Modal -->
     <div id="settings-modal" class="modal" :class="{ 'active': showSettings }">
-      <div class="modal-content">
+      <div class="modal-content modal-large settings-container">
         <div class="modal-header">
           <h2>⚙️ Settings</h2>
           <button class="btn btn-icon" @click="showSettings = false">✕</button>
         </div>
-        <div class="settings-content">
-          <div class="action-buttons">
-            <button class="btn btn-secondary btn-full" @click="showMenuManagement = true; showSettings = false">🍽️ Menu Management</button>
-            <button class="btn btn-secondary btn-full" @click="loadUsers(); showUserManagement = true; showSettings = false">👥 User Management</button>
-          </div>
-          
-          <hr class="divider">
-          
-          <!-- Configuration Section -->
-          <h3 style="margin-bottom: 12px; font-size: 16px;">General Settings</h3>
-          <div class="settings-form" style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
-             <div class="form-group">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px;">Business Name</label>
-                <input type="text" x-model="appSettings.business_name" style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
-             </div>
-             <div class="form-group">
-                <label style="display: block; font-size: 12px; margin-bottom: 4px;">Business Address</label>
-                <input type="text" x-model="appSettings.business_address" style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
-             </div>
-             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-                <div class="form-group">
-                   <label style="display: block; font-size: 12px; margin-bottom: 4px;">Tax Rate (%)</label>
-                   <input type="number" x-model="appSettings.tax_rate" step="0.01" style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
-                </div>
-                <div class="form-group">
-                   <label style="display: block; font-size: 12px; margin-bottom: 4px;">Currency Symbol</label>
-                   <input type="text" x-model="appSettings.currency_symbol" style="width: 100%; padding: 8px; background: var(--bg-secondary); border: 1px solid var(--border-color); color: var(--text-primary); border-radius: 4px;">
-                </div>
-             </div>
-             <button class="btn btn-primary" @click="updateSettings()">💾 Save Settings</button>
-          </div>
-          
-          <hr class="divider">
-          
-          <!-- Data Management Section -->
-          <h3 style="margin-bottom: 12px; font-size: 16px;">Data Management</h3>
-          <div class="data-mgmt-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-            <!-- Export -->
-            <div class="data-card" style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px;">
-               <h4 style="font-size: 14px; margin-bottom: 8px;">Export Data</h4>
-               <div style="display: flex; flex-direction: column; gap: 8px;">
-                 <button class="btn btn-small btn-secondary" @click="exportData('menu-items')">📋 Menu Items (CSV)</button>
-                 <button class="btn btn-small btn-secondary" @click="exportData('orders')">📊 Orders Report (CSV)</button>
-                 <!-- <button class="btn btn-small btn-secondary" @click="exportData('users')">👤 Users (CSV)</button> -->
-               </div>
+        
+        <!-- Tab Navigation -->
+        <div class="settings-tabs" role="tablist">
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'general' }"
+                  @click="activeSettingsTab = 'general'"
+                  aria-selected="${activeSettingsTab === 'general'}"
+                  aria-controls="general-tab-panel">
+            General
+          </button>
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'business' }"
+                  @click="activeSettingsTab = 'business'"
+                  aria-selected="${activeSettingsTab === 'business'}"
+                  aria-controls="business-tab-panel">
+            Business
+          </button>
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'tax' }"
+                  @click="activeSettingsTab = 'tax'"
+                  aria-selected="${activeSettingsTab === 'tax'}"
+                  aria-controls="tax-tab-panel">
+            Tax
+          </button>
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'data' }"
+                  @click="activeSettingsTab = 'data'"
+                  aria-selected="${activeSettingsTab === 'data'}"
+                  aria-controls="data-tab-panel">
+            Data
+          </button>
+          <button class="settings-tab" role="tab"
+                  :class="{ 'active': activeSettingsTab === 'system' }"
+                  @click="activeSettingsTab = 'system'"
+                  aria-selected="${activeSettingsTab === 'system'}"
+                  aria-controls="system-tab-panel">
+            System
+          </button>
+        </div>
+        
+        <!-- Tab Content: General -->
+        <div class="settings-tab-content" role="tabpanel" id="general-tab-panel"
+             aria-labelledby="general-tab"
+             :class="{ 'active': activeSettingsTab === 'general' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>Application Settings</h3>
+              <p class="settings-section-description">Configure general application preferences</p>
             </div>
             
-            <!-- Import -->
-            <div class="data-card" style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px;">
-               <h4 style="font-size: 14px; margin-bottom: 8px;">Import Data</h4>
-               <div style="display: flex; flex-direction: column; gap: 8px;">
-                 <label class="btn btn-small btn-secondary" style="margin: 0; cursor: pointer;">
-                    📥 Import Menu (CSV)
-                    <input type="file" @change="importData($event, 'menu-items')" accept=".csv" style="display: none;">
-                 </label>
-                 <small style="font-size: 10px; color: var(--text-muted);">Format: category_id, name, price...</small>
-               </div>
+            <div class="form-group">
+              <label>Theme</label>
+              <select x-model="theme">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+              </select>
+              <span class="form-help">Choose application theme</span>
+              <span class="form-error" x-text="settingsErrors.theme || ''"></span>
+            </div>
+            
+            <div class="form-group">
+              <label>Language</label>
+              <select x-model="language">
+                <option value="en">English</option>
+                <option value="hi">Hindi</option>
+              </select>
+              <span class="form-help">Select display language</span>
             </div>
           </div>
           
-          <hr class="divider">
-          
-          <!-- System Section -->
-          <h3 style="margin-bottom: 12px; font-size: 16px;">System</h3>
-          <div class="data-mgmt-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-             <!-- Backup -->
-             <div class="data-card" style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; background: rgba(59, 130, 246, 0.1);">
-                <h4 style="font-size: 14px; margin-bottom: 8px;">Backup Database</h4>
-                <button class="btn btn-small btn-primary" @click="downloadBackup()">💾 Download Full Backup</button>
-             </div>
-             
-             <!-- Restore -->
-             <div class="data-card" style="border: 1px solid var(--border-color); padding: 12px; border-radius: 8px; background: rgba(239, 68, 68, 0.1);">
-                <h4 style="font-size: 14px; margin-bottom: 8px;">Restore Database</h4>
-                <label class="btn btn-small btn-danger" style="margin: 0; cursor: pointer; width: 100%; text-align: center;">
-                   ⚠️ Restore from File
-                   <input type="file" @change="restoreBackup($event)" accept=".json" style="display: none;">
-                </label>
-             </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" @click="saveGeneralSettings()">Save Settings</button>
+          </div>
+        </div>
+        
+        <!-- Tab Content: Business -->
+        <div class="settings-tab-content" role="tabpanel" id="business-tab-panel"
+             aria-labelledby="business-tab"
+             :class="{ 'active': activeSettingsTab === 'business' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>Business Information</h3>
+              <p class="settings-section-description">Configure your business identity and details</p>
+            </div>
+            
+            <div class="form-group">
+              <label>Business Name</label>
+              <input type="text" x-model="appSettings.business_name">
+              <span class="form-help">Your business name displayed on receipts</span>
+              <span class="form-error" x-text="settingsErrors.business_name || ''"></span>
+            </div>
+            
+            <div class="form-group">
+              <label>Business Address</label>
+              <textarea x-model="appSettings.business_address"></textarea>
+              <span class="form-help">Address for receipts and customer reference</span>
+            </div>
+            
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Currency Symbol</label>
+                <input type="text" x-model="appSettings.currency_symbol">
+                <span class="form-help">Symbol used in pricing</span>
+              </div>
+              <div class="form-group">
+                <label>Currency Code</label>
+                <input type="text" x-model="appSettings.currency_code">
+                <span class="form-help">ISO currency code (e.g., INR, USD)</span>
+              </div>
+            </div>
           </div>
           
-          <hr class="divider">
+          <div class="settings-actions">
+            <button class="btn btn-primary" @click="saveBusinessSettings()">Save Settings</button>
+          </div>
+        </div>
+        
+        <!-- Tab Content: Tax -->
+        <div class="settings-tab-content" role="tabpanel" id="tax-tab-panel"
+             aria-labelledby="tax-tab"
+             :class="{ 'active': activeSettingsTab === 'tax' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>Tax Configuration</h3>
+              <p class="settings-section-description">Manage tax rates for your business</p>
+            </div>
+            
+            <div class="form-group">
+              <label>Tax Rate (%)</label>
+              <input type="number" x-model="appSettings.tax_rate" step="0.01">
+              <span class="form-help">Applicable tax rate for all transactions</span>
+              <span class="form-error" x-text="settingsErrors.tax_rate || ''"></span>
+            </div>
+          </div>
           
-          <button class="btn btn-danger btn-full" @click="logout()">Logout</button>
+          <div class="settings-actions">
+            <button class="btn btn-primary" @click="saveTaxSettings()">Save Tax Settings</button>
+          </div>
+        </div>
+        
+        <!-- Tab Content: Data -->
+        <div class="settings-tab-content" role="tabpanel" id="data-tab-panel"
+             aria-labelledby="data-tab"
+             :class="{ 'active': activeSettingsTab === 'data' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>Data Management</h3>
+              <p class="settings-section-description">Export and import your data</p>
+            </div>
+            
+            <div class="form-grid">
+              <div class="data-card">
+                <h4>Export Data</h4>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <button class="btn btn-small btn-secondary" @click="exportData('menu-items')">📋 Menu Items (CSV)</button>
+                  <button class="btn btn-small btn-secondary" @click="exportData('orders')">📊 Orders Report (CSV)</button>
+                </div>
+              </div>
+              
+              <div class="data-card">
+                <h4>Import Data</h4>
+                <div style="display: flex; flex-direction: column; gap: 8px;">
+                  <label class="btn btn-small btn-secondary" style="margin: 0; cursor: pointer;">
+                    📥 Import Menu (CSV)
+                    <input type="file" @change="importData($event, 'menu-items')" accept=".csv" style="display: none;">
+                  </label>
+                  <small style="font-size: 10px; color: var(--text-muted);">Format: category_id, name, price...</small>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Tab Content: System -->
+        <div class="settings-tab-content" role="tabpanel" id="system-tab-panel"
+             aria-labelledby="system-tab"
+             :class="{ 'active': activeSettingsTab === 'system' }">
+          <div class="settings-section">
+            <div class="settings-section-header">
+              <h3>System Settings</h3>
+              <p class="settings-section-description">Backup, restore, and advanced options</p>
+            </div>
+            
+            <div class="form-grid">
+              <div class="data-card" style="background: rgba(59, 130, 246, 0.1);">
+                <h4>Backup Database</h4>
+                <button class="btn btn-small btn-primary" @click="downloadBackup()">💾 Download Full Backup</button>
+              </div>
+              
+              <div class="data-card" style="background: rgba(239, 68, 68, 0.1);">
+                <h4>Restore Database</h4>
+                <label class="btn btn-small btn-danger" style="margin: 0; cursor: pointer; width: 100%; text-align: center;">
+                  ⚠️ Restore from File
+                  <input type="file" @change="restoreBackup($event)" accept=".json" style="display: none;">
+                </label>
+              </div>
+            </div>
+            
+            <div class="settings-section" style="margin-top: 24px;">
+              <div class="settings-section-header">
+                <h3>Quick Actions</h3>
+              </div>
+              <div class="form-grid">
+                <button class="btn btn-secondary btn-full" @click="showMenuManagement = true; showSettings = false">🍽️ Menu Management</button>
+                <button class="btn btn-secondary btn-full" @click="loadUsers(); showUserManagement = true; showSettings = false">👥 User Management</button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="settings-actions">
+            <button class="btn btn-danger" @click="logout()">Logout</button>
+          </div>
         </div>
       </div>
     </div>

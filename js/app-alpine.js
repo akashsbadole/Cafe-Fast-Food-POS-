@@ -14,8 +14,8 @@ function posApp() {
     isLocked: false,
     currentUser: null,
     authToken: null,
-    pin: ['', '', '', ''],
-    lockPin: ['', '', '', ''],
+    pinString: '',
+    lockPinString: '',
     username: '',
     showUsernameLogin: false,
     availableUsers: [],
@@ -24,8 +24,13 @@ function posApp() {
 
     // UI state
     theme: 'light',
+    language: 'en',
     currentTime: '',
+    currentDate: '',
     timeInterval: null,
+    activeSettingsTab: 'general',
+    settingsErrors: {},
+    isSavingSettings: false,
 
     // Menu state
     categories: [],
@@ -159,15 +164,35 @@ function posApp() {
     showOrderDetailsModal: false,
     orderDetailsHtml: '',
 
+    // Get authentication headers
+    getAuthHeaders() {
+      const token = localStorage.getItem('authToken');
+      const headers = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+      return headers;
+    },
+
     // Initialize application
     init() {
       this.loadTheme();
+      this.loadLanguage();
       this.startClock();
-      this.loadSettings(); // Load settings first
+      
+      // Check if user is authenticated before loading protected data
+      const authToken = localStorage.getItem('authToken');
+      if (authToken) {
+        this.loadSettings(); // Load settings first
+        this.loadOrders();
+      }
+      
       this.loadMenuData();
-      this.loadOrders();
       this.setupAutoLock();
       this.setupShortcuts();
+      this.setupSettingsKeyboardNavigation();
 
       // Init dates for report (Today)
       const today = new Date().toISOString().split('T')[0];
@@ -194,6 +219,107 @@ function posApp() {
       } catch (error) {
         console.error('Error loading settings:', error);
         this.showToast('Failed to load settings', 'error');
+      }
+    },
+
+    // Validate settings form
+    validateSettings(tab) {
+      const errors = {};
+      
+      if (tab === 'business') {
+        if (!this.appSettings.business_name || this.appSettings.business_name.trim() === '') {
+          errors.business_name = 'Business name is required';
+        }
+      }
+      
+      if (tab === 'tax') {
+        const taxRate = parseFloat(this.appSettings.tax_rate);
+        if (isNaN(taxRate) || taxRate < 0) {
+          errors.tax_rate = 'Tax rate must be a positive number';
+        }
+      }
+      
+      this.settingsErrors = errors;
+      return Object.keys(errors).length === 0;
+    },
+
+    // Save general settings
+    async saveGeneralSettings() {
+      if (!this.validateSettings('general')) {
+        this.showToast('Please fix the errors before saving', 'error');
+        return;
+      }
+      
+      this.isSavingSettings = true;
+      try {
+        localStorage.setItem('theme', this.theme);
+        localStorage.setItem('language', this.language);
+        document.documentElement.setAttribute('data-theme', this.theme);
+        this.showToast('General settings saved successfully', 'success');
+      } catch (error) {
+        console.error('Error saving general settings:', error);
+        this.showToast('Failed to save general settings', 'error');
+      } finally {
+        this.isSavingSettings = false;
+      }
+    },
+
+    // Save business settings
+    async saveBusinessSettings() {
+      if (!this.validateSettings('business')) {
+        this.showToast('Please fix the errors before saving', 'error');
+        return;
+      }
+      
+      this.isSavingSettings = true;
+      try {
+        const res = await fetch(`${API_BASE}/api/settings`, {
+          method: 'PUT',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(this.appSettings)
+        });
+
+        if (res.ok) {
+          this.showToast('Business settings saved successfully', 'success');
+        } else {
+          const err = await res.json();
+          this.showToast(err.error || 'Failed to update business settings', 'error');
+        }
+      } catch (error) {
+        console.error('Error updating business settings:', error);
+        this.showToast('Failed to save business settings', 'error');
+      } finally {
+        this.isSavingSettings = false;
+      }
+    },
+
+    // Save tax settings
+    async saveTaxSettings() {
+      if (!this.validateSettings('tax')) {
+        this.showToast('Please fix the errors before saving', 'error');
+        return;
+      }
+      
+      this.isSavingSettings = true;
+      try {
+        const res = await fetch(`${API_BASE}/api/settings`, {
+          method: 'PUT',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(this.appSettings)
+        });
+
+        if (res.ok) {
+          this.showToast('Tax settings saved successfully', 'success');
+          this.calculateTotals(); // Recalculate totals with new tax rate
+        } else {
+          const err = await res.json();
+          this.showToast(err.error || 'Failed to update tax settings', 'error');
+        }
+      } catch (error) {
+        console.error('Error updating tax settings:', error);
+        this.showToast('Failed to save tax settings', 'error');
+      } finally {
+        this.isSavingSettings = false;
       }
     },
 
@@ -279,11 +405,62 @@ function posApp() {
       document.documentElement.setAttribute('data-theme', this.theme);
     },
 
+    // Load language from localStorage
+    loadLanguage() {
+      this.language = localStorage.getItem('language') || 'en';
+    },
+
     // Toggle theme
     toggleTheme() {
       this.theme = this.theme === 'light' ? 'dark' : 'light';
       localStorage.setItem('theme', this.theme);
       document.documentElement.setAttribute('data-theme', this.theme);
+    },
+
+    // Setup keyboard navigation for settings
+    setupSettingsKeyboardNavigation() {
+      document.addEventListener('keydown', (e) => {
+        if (!this.showSettings) return;
+        
+        // Save with Ctrl+S
+        if (e.ctrlKey && e.key === 's') {
+          e.preventDefault();
+          const activeTab = this.activeSettingsTab;
+          if (activeTab === 'general') {
+            this.saveGeneralSettings();
+          } else if (activeTab === 'business') {
+            this.saveBusinessSettings();
+          } else if (activeTab === 'tax') {
+            this.saveTaxSettings();
+          } else if (activeTab === 'receipt') {
+            this.updateSettings();
+          }
+        }
+        
+        // Close with Escape
+        if (e.key === 'Escape') {
+          this.showSettings = false;
+        }
+        
+        // Tab navigation between tabs
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          const tabs = ['general', 'business', 'receipt', 'tax', 'data', 'system'];
+          const currentIndex = tabs.indexOf(this.activeSettingsTab);
+          if (currentIndex < tabs.length - 1) {
+            this.activeSettingsTab = tabs[currentIndex + 1];
+          }
+        }
+        
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const tabs = ['general', 'business', 'receipt', 'tax', 'data', 'system'];
+          const currentIndex = tabs.indexOf(this.activeSettingsTab);
+          if (currentIndex > 0) {
+            this.activeSettingsTab = tabs[currentIndex - 1];
+          }
+        }
+      });
     },
 
     // Start clock
@@ -302,6 +479,12 @@ function posApp() {
         hour: '2-digit',
         minute: '2-digit',
         hour12: true
+      });
+      this.currentDate = now.toLocaleDateString('default', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
       });
     },
 
@@ -528,64 +711,8 @@ function posApp() {
     },
 
     // PIN handling
-    handlePinInput(event, index) {
-      const input = event.target;
-      const value = input.value;
-
-      // Only allow numbers
-      if (!/^\d*$/.test(value)) {
-        this.pin[index] = '';
-        input.value = '';
-        return;
-      }
-
-      // Move to next input
-      if (value && index < 3) {
-        const inputs = document.querySelectorAll('#login-form .pin-digit');
-        if (inputs[index + 1]) {
-          inputs[index + 1].focus();
-        }
-      }
-    },
-
-    handleLockPinInput(event, index) {
-      const input = event.target;
-      const value = input.value;
-
-      if (!/^\d*$/.test(value)) {
-        this.lockPin[index] = '';
-        input.value = '';
-        return;
-      }
-
-      if (value && index < 3) {
-        const inputs = document.querySelectorAll('#lock-form .pin-digit');
-        if (inputs[index + 1]) {
-          inputs[index + 1].focus();
-        }
-      }
-    },
-
-    handlePinKeydown(event, index) {
-      if (event.key === 'Backspace' && !event.target.value && index > 0) {
-        const inputs = document.querySelectorAll('#lock-form .pin-digit');
-        inputs[index - 1].focus();
-      }
-    },
-
-    // Helper: Headers with Auth
-    getAuthHeaders() {
-      const headers = { 'Content-Type': 'application/json' };
-      const token = localStorage.getItem('authToken');
-      if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-      }
-      return headers;
-    },
-
-    // Login
     async login() {
-      const pin = this.pin.join('');
+      const pin = this.pinString;
       if (pin.length < 4) {
         this.loginError = 'Please enter complete PIN';
         return;
@@ -604,11 +731,11 @@ function posApp() {
           localStorage.setItem('authToken', result.token); // Store token
           localStorage.setItem('user', JSON.stringify(result.user));
           this.isLoggedIn = true;
-          this.pin = ['', '', '', ''];
+          this.pinString = '';
           this.loginError = '';
         } else {
           this.loginError = 'Invalid PIN. Use 1234';
-          this.pin = ['', '', '', ''];
+          this.pinString = '';
           this.clearPinInputs();
         }
       } catch (error) {
@@ -621,7 +748,7 @@ function posApp() {
 
     // Unlock
     async unlock() {
-      const pin = this.lockPin.join('');
+      const pin = this.lockPinString;
       if (pin.length < 4) {
         this.lockError = 'Please enter complete PIN';
         return;
@@ -640,11 +767,11 @@ function posApp() {
           // Refresh token if needed or just unlock
           localStorage.setItem('authToken', result.token);
           this.isLocked = false;
-          this.lockPin = ['', '', '', ''];
+          this.lockPinString = '';
           this.lockError = '';
         } else {
           this.lockError = 'Invalid PIN';
-          this.lockPin = ['', '', '', ''];
+          this.lockPinString = '';
           this.clearLockPinInputs();
         }
       } catch (error) {
@@ -659,7 +786,8 @@ function posApp() {
         this.isLoggedIn = false;
         this.isLocked = false;
         this.cart = [];
-        this.clearPinInputs();
+        this.pinString = '';
+        this.lockPinString = '';
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
       }
@@ -667,17 +795,17 @@ function posApp() {
 
     // Clear PIN inputs
     clearPinInputs() {
-      const inputs = document.querySelectorAll('#login-form .pin-digit');
-      inputs.forEach(input => input.value = '');
-      this.pin = ['', '', '', ''];
-      if (inputs[0]) inputs[0].focus();
+      this.pinString = '';
+      this.$nextTick(() => {
+        this.$refs.loginPin?.focus();
+      });
     },
 
     clearLockPinInputs() {
-      const inputs = document.querySelectorAll('#lock-form .pin-digit');
-      inputs.forEach(input => input.value = '');
-      this.lockPin = ['', '', '', ''];
-      if (inputs[0]) inputs[0].focus();
+      this.lockPinString = '';
+      this.$nextTick(() => {
+        this.$refs.lockPin?.focus();
+      });
     },
 
     // Auto-lock setup

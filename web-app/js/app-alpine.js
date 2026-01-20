@@ -17,8 +17,12 @@ function posApp() {
 
     // UI state
     theme: 'light',
+    language: 'en',
     currentTime: '',
     timeInterval: null,
+    activeSettingsTab: 'general',
+    settingsErrors: {},
+    isSavingSettings: false,
 
     // Menu state
     categories: [],
@@ -110,12 +114,14 @@ function posApp() {
     // Initialize application
     init() {
       this.loadTheme();
+      this.loadLanguage();
       this.startClock();
       this.loadMenuData();
       this.loadTaxes(); // Fetch taxes
       this.loadOrders();
       this.setupAutoLock();
       this.setupKeyboardShortcuts();
+      this.setupSettingsKeyboardNavigation();
     },
 
     setupKeyboardShortcuts() {
@@ -148,11 +154,62 @@ function posApp() {
       document.documentElement.setAttribute('data-theme', this.theme);
     },
 
+    // Load language from localStorage
+    loadLanguage() {
+      this.language = localStorage.getItem('language') || 'en';
+    },
+
     // Toggle theme
     toggleTheme() {
       this.theme = this.theme === 'light' ? 'dark' : 'light';
       localStorage.setItem('theme', this.theme);
       document.documentElement.setAttribute('data-theme', this.theme);
+    },
+
+    // Setup keyboard navigation for settings
+    setupSettingsKeyboardNavigation() {
+      document.addEventListener('keydown', (e) => {
+        if (!this.showSettings) return;
+        
+        // Save with Ctrl+S
+        if (e.ctrlKey && e.key === 's') {
+          e.preventDefault();
+          const activeTab = this.activeSettingsTab;
+          if (activeTab === 'general') {
+            this.saveGeneralSettings();
+          } else if (activeTab === 'business') {
+            this.saveBusinessSettings();
+          } else if (activeTab === 'tax') {
+            this.saveTaxSettings();
+          } else if (activeTab === 'receipt') {
+            this.updateSettings();
+          }
+        }
+        
+        // Close with Escape
+        if (e.key === 'Escape') {
+          this.showSettings = false;
+        }
+        
+        // Tab navigation between tabs
+        if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          const tabs = ['general', 'business', 'receipt', 'tax', 'data', 'system'];
+          const currentIndex = tabs.indexOf(this.activeSettingsTab);
+          if (currentIndex < tabs.length - 1) {
+            this.activeSettingsTab = tabs[currentIndex + 1];
+          }
+        }
+        
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          const tabs = ['general', 'business', 'receipt', 'tax', 'data', 'system'];
+          const currentIndex = tabs.indexOf(this.activeSettingsTab);
+          if (currentIndex > 0) {
+            this.activeSettingsTab = tabs[currentIndex - 1];
+          }
+        }
+      });
     },
 
     // Toggle language
@@ -916,6 +973,110 @@ function posApp() {
         }
       } catch (error) {
         console.error('Error loading settings:', error);
+      }
+    },
+
+    // Validate settings form
+    validateSettings(tab) {
+      const errors = {};
+      
+      if (tab === 'business') {
+        if (!this.appSettings.business_name || this.appSettings.business_name.trim() === '') {
+          errors.business_name = 'Business name is required';
+        }
+      }
+      
+      if (tab === 'tax') {
+        const taxRate = parseFloat(this.appSettings.tax_rate);
+        if (isNaN(taxRate) || taxRate < 0) {
+          errors.tax_rate = 'Tax rate must be a positive number';
+        }
+      }
+      
+      this.settingsErrors = errors;
+      return Object.keys(errors).length === 0;
+    },
+
+    // Save general settings
+    async saveGeneralSettings() {
+      if (!this.validateSettings('general')) {
+        this.showToast('Please fix the errors before saving', 'error');
+        return;
+      }
+      
+      this.isSavingSettings = true;
+      try {
+        localStorage.setItem('theme', this.theme);
+        localStorage.setItem('language', this.language);
+        document.documentElement.setAttribute('data-theme', this.theme);
+        this.showToast('General settings saved successfully', 'success');
+      } catch (error) {
+        console.error('Error saving general settings:', error);
+        this.showToast('Failed to save general settings', 'error');
+      } finally {
+        this.isSavingSettings = false;
+      }
+    },
+
+    // Save business settings
+    async saveBusinessSettings() {
+      if (!this.validateSettings('business')) {
+        this.showToast('Please fix the errors before saving', 'error');
+        return;
+      }
+      
+      this.isSavingSettings = true;
+      try {
+        const response = await fetch(`${API_BASE}/api/settings`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.token}`
+          },
+          body: JSON.stringify(this.appSettings)
+        });
+        if (response.ok) {
+          this.showToast('Business settings saved successfully', 'success');
+        } else {
+          const err = await response.json();
+          this.showToast(err.error || 'Failed to update business settings', 'error');
+        }
+      } catch (error) {
+        console.error('Error updating business settings:', error);
+        this.showToast('Failed to save business settings', 'error');
+      } finally {
+        this.isSavingSettings = false;
+      }
+    },
+
+    // Save tax settings
+    async saveTaxSettings() {
+      if (!this.validateSettings('tax')) {
+        this.showToast('Please fix the errors before saving', 'error');
+        return;
+      }
+      
+      this.isSavingSettings = true;
+      try {
+        const response = await fetch(`${API_BASE}/api/settings`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${this.token}`
+          },
+          body: JSON.stringify(this.appSettings)
+        });
+        if (response.ok) {
+          this.showToast('Tax settings saved successfully', 'success');
+        } else {
+          const err = await response.json();
+          this.showToast(err.error || 'Failed to update tax settings', 'error');
+        }
+      } catch (error) {
+        console.error('Error updating tax settings:', error);
+        this.showToast('Failed to save tax settings', 'error');
+      } finally {
+        this.isSavingSettings = false;
       }
     },
 

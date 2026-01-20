@@ -181,46 +181,8 @@ app.post('/api/auth/verify-pin', async (req, res) => {
   try {
     const { pin } = req.body;
 
-    // Iterate over all active users to find a match
-    // Note: In a large system, we would hash the input PIN and query the DB for that hash directly.
-    // However, bcrypt.compareSync requires the stored hash (salt included) to compare.
-    // So for maximum security with bcrypt, we must either:
-    // 1. Iterate all users (OK for < 100 users) -> Proposed approach for MVP
-    // 2. Store a fast lookup hash (SHA256) separately for lookup -> Better for scaling
-    // Let's stick to iteration for a small cafe system.
-
-    const users = await db.user.getAll(); // Only returns active users usually, but let's check
-    // Actually getAll returns id, username, but NOT pin_hash for security.
-    // We need a specialized method or just raw query here for auth.
-    // Let's use a specialized query helper or just re-query.
-
-    // Better: Helper in db to find user by verified PIN
-    // But since we can't do SQL 'WHERE bcrypt(pin, hash) = true', we fetch all active users with their pin_hashes
-    // Security Warning: In a massive app, internal API shouldn't expose hashes. 
-    // Here we are server-side.
-
-    // Let's request all users WITH pin_hash via a raw query logic or specialized function.
-    // Adding a quick specialized lookup in server.js for now or rely on database.js having a 'getAllWithSecrets'
-    // Let's just assume we can fetch them.
-
-    // Temporarily using raw query via existing db mechanism if possible, or adding a method.
-    // userOps.getAll() defined in previous step DOES NOT return pin_hash (good practice).
-    // Let's assume we can fetch all for auth verification.
-
-    // Quick fix: fetch all using custom query here or add 'verifyPin' to userOps?
-    // Adding 'verifyPin' to userOps is cleaner but I just edited database.js.
-    // Let's use `db.query` if exposed? Yes `db.query` is exposed.
-
-    const result = await db.query('SELECT * FROM users WHERE is_active = 1');
-    const allUsers = result.rows;
-
-    let matchedUser = null;
-    for (const user of allUsers) {
-      if (bcrypt.compareSync(pin, user.pin_hash)) {
-        matchedUser = user;
-        break;
-      }
-    }
+    // Use the built-in getByPin method which handles bcrypt comparison
+    const matchedUser = await db.user.getByPin(pin);
 
     if (matchedUser) {
       await db.user.updateLastLogin(matchedUser.id);

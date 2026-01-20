@@ -323,6 +323,11 @@ function resultToObjects(result) {
 
 // User operations
 const userOps = {
+  getAll: () => {
+    const result = db.exec('SELECT * FROM users WHERE is_active = 1 ORDER BY created_at DESC');
+    return resultToObjects(result);
+  },
+
   getByUsername: (username) => {
     const result = db.exec('SELECT * FROM users WHERE username = ?', [username]);
     const users = resultToObjects(result);
@@ -648,7 +653,7 @@ const taxOps = {
 };
 
 // Settings operations
-const settingsOps = {
+const settingOps = {
   get: (key) => {
     const result = db.exec('SELECT value FROM settings WHERE key = ?', [key]);
     if (result.length > 0 && result[0].values.length > 0) {
@@ -663,6 +668,26 @@ const settingsOps = {
       VALUES (?, ?, CURRENT_TIMESTAMP)
     `, [key, value]);
     saveDatabase();
+  },
+  
+  getAll: () => {
+    const result = db.exec('SELECT key, value FROM settings');
+    // Convert to object for easier use: { key: value }
+    const rows = resultToObjects(result);
+    return rows.reduce((acc, row) => {
+      acc[row.key] = row.value;
+      return acc;
+    }, {});
+  },
+  
+  updateMultiple: (settingsObj) => {
+    for (const [key, value] of Object.entries(settingsObj)) {
+      db.run(`
+        INSERT OR REPLACE INTO settings (key, value, updated_at)
+        VALUES (?, ?, CURRENT_TIMESTAMP)
+      `, [key, value]);
+    }
+    saveDatabase();
   }
 };
 
@@ -676,7 +701,16 @@ module.exports = {
   order: orderOps,
   kot: kotOps,
   tax: taxOps,
-  settings: settingsOps
+  settings: settingOps,
+  settingOps: settingOps,
+  // Aliases for consistency with server.js expectations
+  categoryOps,
+  menuOps,
+  orderOps,
+  kotOps,
+  taxOps,
+  settingsOps: settingOps,
+  settingOps
 };
 
 // Note: seedDefaultData() is now called inside initDatabase() after db is created
@@ -694,29 +728,27 @@ function seedDefaultData() {
 
   try {
     // Create default roles
-    const adminRole = db.prepare('SELECT id FROM roles WHERE name = ?').get('admin');
+    const adminRoleResult = db.exec('SELECT id FROM roles WHERE name = ?', ['admin']);
+    const adminRole = adminRoleResult.length > 0 && adminRoleResult[0].values.length > 0 ? resultToObjects(adminRoleResult)[0] : null;
     if (!adminRole) {
-      db.prepare('INSERT INTO roles (name, description, permissions) VALUES (?, ?, ?)').run(
-        'admin',
-        'Administrator with full access',
-        JSON.stringify(['manage_all', 'manage_settings', 'manage_users', 'manage_menu', 'manage_orders', 'view_reports'])
-      );
+      db.run('INSERT INTO roles (name, description, permissions) VALUES (?, ?, ?)',
+        ['admin', 'Administrator with full access', JSON.stringify(['manage_all', 'manage_settings', 'manage_users', 'manage_menu', 'manage_orders', 'view_reports'])]);
     }
-
-    const cashierRole = db.prepare('SELECT id FROM roles WHERE name = ?').get('cashier');
+  
+    const cashierRoleResult = db.exec('SELECT id FROM roles WHERE name = ?', ['cashier']);
+    const cashierRole = cashierRoleResult.length > 0 && cashierRoleResult[0].values.length > 0 ? resultToObjects(cashierRoleResult)[0] : null;
     if (!cashierRole) {
-      db.prepare('INSERT INTO roles (name, description, permissions) VALUES (?, ?, ?)').run(
-        'cashier',
-        'Cashier with limited access',
-        JSON.stringify(['manage_orders', 'view_menu'])
-      );
+      db.run('INSERT INTO roles (name, description, permissions) VALUES (?, ?, ?)',
+        ['cashier', 'Cashier with limited access', JSON.stringify(['manage_orders', 'view_menu'])]);
     }
-
+  
     // Create default admin user if not exists
-    const adminUser = db.prepare('SELECT id FROM users WHERE username = ?').get('admin');
+    const adminUserResult = db.exec('SELECT id FROM users WHERE username = ?', ['admin']);
+    const adminUser = adminUserResult.length > 0 && adminUserResult[0].values.length > 0 ? resultToObjects(adminUserResult)[0] : null;
     if (!adminUser) {
       const bcrypt = require('bcryptjs');
-      const adminRoleId = db.prepare('SELECT id FROM roles WHERE name = ?').get('admin').id;
+      const adminRoleIdResult = db.exec('SELECT id FROM roles WHERE name = ?', ['admin']);
+      const adminRoleId = adminRoleIdResult.length > 0 && adminRoleIdResult[0].values.length > 0 ? resultToObjects(adminRoleIdResult)[0].id : null;
 
       db.prepare(`INSERT INTO users (username, password_hash, pin_hash, role, role_id, full_name, permissions) 
                   VALUES (?, ?, ?, ?, ?, ?, ?)`).run(
@@ -741,14 +773,15 @@ const dbOps = {
   // User operations
   user: {
     getAll: () => {
-      return db.prepare(`
-        SELECT u.id, u.username, u.full_name, u.role, r.name as role_name, 
+      const result = db.exec(`
+        SELECT u.id, u.username, u.full_name, u.role, r.name as role_name,
                u.is_active, u.last_login, u.created_at
-        FROM users u 
-        LEFT JOIN roles r ON u.role_id = r.id 
+        FROM users u
+        LEFT JOIN roles r ON u.role_id = r.id
         WHERE u.is_active = 1
         ORDER BY u.created_at DESC
-      `).all();
+      `);
+      return resultToObjects(result);
     },
 
     getById: (id) => {
@@ -771,7 +804,8 @@ const dbOps = {
 
     getByPin: (pin) => {
       const bcrypt = require('bcryptjs');
-      const users = db.prepare('SELECT * FROM users WHERE is_active = 1').all();
+      const result = db.exec('SELECT * FROM users WHERE is_active = 1');
+      const users = resultToObjects(result);
       return users.find(user => bcrypt.compareSync(pin, user.pin_hash));
     },
 
@@ -798,15 +832,15 @@ const dbOps = {
       if (fields.length === 0) return;
 
       values.push(id);
-      return db.prepare(`UPDATE users SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values);
+      return db.run(`UPDATE users SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, ...values);
     },
 
     updateLastLogin: (id) => {
-      return db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(id);
+      return db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [id]);
     },
 
     delete: (id) => {
-      return db.prepare('UPDATE users SET is_active = 0 WHERE id = ?').run(id);
+      return db.run('UPDATE users SET is_active = 0 WHERE id = ?', [id]);
     },
 
     getPermissions: (userId) => {
@@ -829,11 +863,14 @@ const dbOps = {
   // Role operations
   role: {
     getAll: () => {
-      return db.prepare('SELECT * FROM roles WHERE is_active = 1 ORDER BY name').all();
+      const result = db.exec('SELECT * FROM roles WHERE is_active = 1 ORDER BY name');
+      return resultToObjects(result);
     },
 
     getById: (id) => {
-      return db.prepare('SELECT * FROM roles WHERE id = ? AND is_active = 1').get(id);
+      const result = db.exec('SELECT * FROM roles WHERE id = ? AND is_active = 1', [id]);
+      const roles = resultToObjects(result);
+      return roles[0] || null;
     },
 
     create: (name, description, permissions) => {
@@ -852,22 +889,27 @@ const dbOps = {
     },
 
     delete: (id) => {
-      return db.prepare('UPDATE roles SET is_active = 0 WHERE id = ?').run(id);
+      return db.run('UPDATE roles SET is_active = 0 WHERE id = ?', [id]);
     }
   },
 
   // Customer operations
   customer: {
     getAll: () => {
-      return db.prepare('SELECT * FROM customers ORDER BY created_at DESC').all();
+      const result = db.exec('SELECT * FROM customers ORDER BY created_at DESC');
+      return resultToObjects(result);
     },
 
     getById: (id) => {
-      return db.prepare('SELECT * FROM customers WHERE id = ?').get(id);
+      const result = db.exec('SELECT * FROM customers WHERE id = ?', [id]);
+      const customers = resultToObjects(result);
+      return customers[0] || null;
     },
-
+    
     getByPhone: (phone) => {
-      return db.prepare('SELECT * FROM customers WHERE phone = ?').get(phone);
+      const result = db.exec('SELECT * FROM customers WHERE phone = ?', [phone]);
+      const customers = resultToObjects(result);
+      return customers[0] || null;
     },
 
     search: (query) => {
@@ -901,7 +943,7 @@ const dbOps = {
       if (fields.length === 0) return;
 
       values.push(id);
-      return db.prepare(`UPDATE customers SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`).run(...values);
+      return db.run(`UPDATE customers SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, ...values);
     },
 
     updateStats: (customerId, orderTotal) => {
@@ -932,7 +974,7 @@ const dbOps = {
     updateStock: (itemId, quantity, reason, userId) => {
       const transaction = db.transaction(() => {
         // Update menu item stock
-        db.prepare('UPDATE menu_items SET stock_quantity = stock_quantity + ? WHERE id = ?').run(quantity, itemId);
+        db.run('UPDATE menu_items SET stock_quantity = stock_quantity + ? WHERE id = ?', [quantity, itemId]);
 
         // Record transaction
         db.prepare(`
@@ -941,11 +983,12 @@ const dbOps = {
         `).run(itemId, quantity > 0 ? 'add' : 'remove', Math.abs(quantity), reason, userId);
 
         // Update availability based on stock
-        const item = db.prepare('SELECT stock_quantity FROM menu_items WHERE id = ?').get(itemId);
+        const itemResult = db.exec('SELECT stock_quantity FROM menu_items WHERE id = ?', [itemId]);
+        const item = itemResult.length > 0 && itemResult[0].values.length > 0 ? resultToObjects(itemResult)[0] : null;
         if (item && item.stock_quantity <= 0) {
-          db.prepare('UPDATE menu_items SET is_available = 0 WHERE id = ?').run(itemId);
+          db.run('UPDATE menu_items SET is_available = 0 WHERE id = ?', [itemId]);
         } else if (item && item.stock_quantity > 0) {
-          db.prepare('UPDATE menu_items SET is_available = 1 WHERE id = ?').run(itemId);
+          db.run('UPDATE menu_items SET is_available = 1 WHERE id = ?', [itemId]);
         }
       });
 
@@ -953,17 +996,20 @@ const dbOps = {
     },
 
     getStockLevel: (itemId) => {
-      return db.prepare('SELECT stock_quantity FROM menu_items WHERE id = ?').get(itemId);
+      const result = db.exec('SELECT stock_quantity FROM menu_items WHERE id = ?', [itemId]);
+      const items = resultToObjects(result);
+      return items[0] || null;
     },
 
     getLowStockItems: () => {
-      return db.prepare(`
+      const result = db.exec(`
         SELECT m.*, c.name as category_name
         FROM menu_items m
         LEFT JOIN categories c ON m.category_id = c.id
         WHERE m.stock_quantity <= m.low_stock_threshold AND m.is_available = 1
         ORDER BY m.stock_quantity ASC
-      `).all();
+      `);
+      return resultToObjects(result);
     },
 
     getTransactionHistory: (itemId, limit = 50) => {
@@ -978,7 +1024,7 @@ const dbOps = {
     },
 
     setLowStockThreshold: (itemId, threshold) => {
-      return db.prepare('UPDATE menu_items SET low_stock_threshold = ? WHERE id = ?').run(threshold, itemId);
+      return db.run('UPDATE menu_items SET low_stock_threshold = ? WHERE id = ?', [threshold, itemId]);
     }
   },
 
@@ -1078,7 +1124,8 @@ const dbOps = {
 
       tables.forEach(table => {
         try {
-          dump.data[table] = db.prepare(`SELECT * FROM ${table}`).all();
+          const result = db.exec(`SELECT * FROM ${table}`);
+          dump.data[table] = resultToObjects(result);
         } catch (error) {
           console.warn(`Table ${table} not found or error:`, error.message);
           dump.data[table] = [];
@@ -1096,7 +1143,7 @@ const dbOps = {
         const tables = ['inventory_transactions', 'order_items', 'orders', 'customers', 'menu_items', 'categories'];
         tables.forEach(table => {
           try {
-            db.prepare(`DELETE FROM ${table}`).run();
+            db.run(`DELETE FROM ${table}`);
           } catch (error) {
             console.warn(`Could not clear table ${table}:`, error.message);
           }
@@ -1145,8 +1192,56 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
+// Unified exports - merge old-style ops with dbOps
 module.exports = {
   initDatabase,
+  saveDatabase,
   getDatabase: () => db,
-  ...dbOps
+  // Old-style operations (for compatibility with server.js)
+  user: userOps,
+  category: categoryOps,
+  menu: menuOps,
+  order: orderOps,
+  kot: kotOps,
+  tax: taxOps,
+  settings: settingOps,
+  settingOps: settingOps,
+  // Aliases
+  categoryOps,
+  menuOps,
+  orderOps,
+  kotOps,
+  taxOps,
+  settingsOps: settingOps,
+  settingOps,
+  // New dbOps structure
+  user: {
+    ...userOps,
+    ...dbOps.user,
+    // Ensure getByPin is accessible
+    getByPin: dbOps.user.getByPin
+  },
+  roles: dbOps.role,
+  customer: dbOps.customer,
+  inventory: dbOps.inventory,
+  reports: dbOps.reports,
+  backup: dbOps.backup,
+  // Query helper for raw SQL
+  query: (sql, params = []) => {
+    try {
+      const stmt = db.prepare(sql);
+      if (params.length > 0) {
+        stmt.bind(params);
+      }
+      const results = [];
+      while (stmt.step()) {
+        results.push(stmt.getAsObject());
+      }
+      stmt.free();
+      return { rows: results };
+    } catch (error) {
+      console.error('Query error:', error);
+      throw error;
+    }
+  }
 };

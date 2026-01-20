@@ -4,10 +4,9 @@
   "description": "Cafe/Fast-Food POS Desktop App with Electron.js",
   "main": "main.js",
   "scripts": {
-    "start": ".\\node_modules\\.bin\\electron main.js",
-    "build": "electron-builder",
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder"
   },
   "author": "Cafe POS Team",
   "license": "MIT",
@@ -15,20 +14,17 @@
     "@casl/ability": "^6.7.5",
     "bcryptjs": "^2.4.3",
     "cors": "^2.8.5",
-    "csv-parser": "^3.0.0",
-    "dotenv": "^16.3.1",
-    "express": "^4.18.2",
-    "json2csv": "^5.0.7",
+    "csv-parser": "^3.2.0",
+    "dotenv": "^16.6.1",
+    "express": "^4.22.1",
+    "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.1",
-    "pg": "^8.11.3",
-    "sql.js": "^1.10.3"
+    "sql.js": "^1.13.0"
   },
   "devDependencies": {
-    "electron": "^28.0.0",
-    "electron-builder": "^24.9.1",
-    "fast-check": "^4.5.3",
-    "jest": "^30.2.0"
+    "electron": "^40.0.0",
+    "electron-builder": "^23.0.6"
   },
   "build": {
     "appId": "com.cafe.pos",

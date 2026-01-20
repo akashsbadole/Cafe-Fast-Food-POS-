@@ -151,14 +151,6 @@ async function initDatabase() {
       console.log('Migration check: menu_items.stock_quantity');
     }
 
-    // Indices for performance
-    await query(`CREATE INDEX IF NOT EXISTS IDX_menu_items_category ON menu_items(category_id)`);
-    await query(`CREATE INDEX IF NOT EXISTS IDX_order_items_order ON order_items(order_id)`);
-    await query(`CREATE INDEX IF NOT EXISTS IDX_order_items_menu_item ON order_items(menu_item_id)`);
-    await query(`CREATE INDEX IF NOT EXISTS IDX_kot_tickets_order ON kot_tickets(order_id)`);
-    await query(`CREATE INDEX IF NOT EXISTS IDX_orders_order_number ON orders(order_number)`);
-    await query(`CREATE INDEX IF NOT EXISTS IDX_customers_phone ON customers(phone)`);
-
     await query(`
       CREATE TABLE IF NOT EXISTS customers (
         id SERIAL PRIMARY KEY,
@@ -169,6 +161,14 @@ async function initDatabase() {
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Indices for performance
+    await query(`CREATE INDEX IF NOT EXISTS IDX_menu_items_category ON menu_items(category_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS IDX_order_items_order ON order_items(order_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS IDX_order_items_menu_item ON order_items(menu_item_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS IDX_kot_tickets_order ON kot_tickets(order_id)`);
+    await query(`CREATE INDEX IF NOT EXISTS IDX_orders_order_number ON orders(order_number)`);
+    await query(`CREATE INDEX IF NOT EXISTS IDX_customers_phone ON customers(phone)`);
 
     try {
       await query(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id)`);

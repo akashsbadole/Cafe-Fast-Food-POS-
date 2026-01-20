@@ -1,0 +1,9 @@
+[2026-01-19T19:30:06.359Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
+[2026-01-19T19:30:11.186Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
+[2026-01-19T19:30:38.792Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
+[2026-01-19T19:32:40.587Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
+[2026-01-19T19:32:48.619Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
+[2026-01-19T19:32:56.798Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{\"pin\":\"1234\"}' ","type":"entity.parse.failed"}
+[2026-01-19T19:37:01.004Z] ERROR: Error fetching settings: {}
+[2026-01-19T19:47:18.667Z] ERROR: Error fetching settings: {}
+[2026-01-19T19:47:18.676Z] ERROR: Error fetching settings: {}

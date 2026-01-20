@@ -406,19 +406,23 @@ const categoryOps = {
 };
 
 const customerOps = {
+    getAll: async () => {
+        const res = await query('SELECT * FROM customers ORDER BY created_at DESC');
+        return res.rows;
+    },
     search: async (q) => {
         const res = await query(`
-            SELECT * FROM customers 
-            WHERE phone ILIKE $1 OR name ILIKE $1 
-            ORDER BY name 
+            SELECT * FROM customers
+            WHERE phone ILIKE $1 OR name ILIKE $1
+            ORDER BY name
             LIMIT 10
         `, [`%${q}%`]);
         return res.rows;
     },
     create: async (name, phone) => {
         const res = await query(`
-            INSERT INTO customers (name, phone) 
-            VALUES ($1, $2) 
+            INSERT INTO customers (name, phone)
+            VALUES ($1, $2)
             RETURNING *
         `, [name, phone]);
         return res.rows[0];
