@@ -423,6 +423,25 @@ Set environment variable to use PostgreSQL:
 DB_TYPE=postgres node server.js
 ```
 
+### 📚 Documentation
+
+The project now has comprehensive documentation organized into categories:
+
+- **[ROOT-README.md]** - Main documentation with feature overview
+- **[CORE-FEATURES/README.md]** - Electron, server, and UI framework documentation
+- **[DATABASE/README.md]** - Database schema, operations, and migrations
+- **[AUTHENTICATION/README.md]** - Security, roles, and permissions
+- **[BUSINESS-LOGIC/README.md]** - Orders, inventory, reporting, and token queue
+- **[UI/README.md]** - UI components, themes, and localization
+- **[TESTING/README.md]** - Testing framework and test execution
+- **[CONFIGURATION/README.md]** - Setup, installation, and configuration
+- **[DOCUMENTATION-ANALYSIS.md]** - Feature analysis and requirements
+- **[IMPLEMENTATION-SUMMARY.md]** - Implementation status and feature completion
+- **[future.md]** - Future development roadmap
+- **[plans/architecture.md]** - Technical architecture and UI designs
+
+All features are fully documented with cross-references between documentation files.
+
 The app is fully functional, sellable, and production-ready with beautiful UI and complete offline-first capability.
 
 
