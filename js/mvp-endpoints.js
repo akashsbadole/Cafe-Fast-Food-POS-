@@ -499,11 +499,766 @@ function addBackupEndpoints(app, db, checkPermission) {
     });
 }
 
+// Token/Queue Management Endpoints
+function addTokenQueueEndpoints(app, db, checkPermission) {
+
+    // GET token queue settings
+    app.get('/api/token-queue/settings', checkPermission('manage_settings'), async (req, res) => {
+        try {
+            const settings = await db.tokenQueue.getSettings();
+            res.json(settings || {});
+        } catch (error) {
+            console.error('Error fetching token queue settings:', error);
+            res.status(500).json({ error: 'Failed to fetch settings' });
+        }
+    });
+
+    // PUT update token queue settings
+    app.put('/api/token-queue/settings', checkPermission('manage_settings'), async (req, res) => {
+        try {
+            const settings = req.body;
+            await db.tokenQueue.updateSettings(settings);
+            res.json({ success: true, message: 'Settings updated successfully' });
+        } catch (error) {
+            console.error('Error updating token queue settings:', error);
+            res.status(500).json({ error: 'Failed to update settings' });
+        }
+    });
+
+    // POST create new token
+    app.post('/api/token-queue/tokens', checkPermission('manage_orders'), async (req, res) => {
+        try {
+            const { customer_name, customer_phone, notes } = req.body;
+            const userId = req.user.id;
+
+            const token = await db.tokenQueue.createToken(customer_name, customer_phone, notes, userId);
+            res.status(201).json(token);
+        } catch (error) {
+            console.error('Error creating token:', error);
+            res.status(500).json({ error: 'Failed to create token' });
+        }
+    });
+
+    // GET all tokens
+    app.get('/api/token-queue/tokens', checkPermission('view_orders'), async (req, res) => {
+        try {
+            const { status } = req.query;
+            const tokens = await db.tokenQueue.getAllTokens(status);
+            res.json(tokens);
+        } catch (error) {
+            console.error('Error fetching tokens:', error);
+            res.status(500).json({ error: 'Failed to fetch tokens' });
+        }
+    });
+
+    // GET active queue
+    app.get('/api/token-queue/active', checkPermission('view_orders'), async (req, res) => {
+        try {
+            const queue = await db.tokenQueue.getActiveQueue();
+            res.json(queue);
+        } catch (error) {
+            console.error('Error fetching active queue:', error);
+            res.status(500).json({ error: 'Failed to fetch active queue' });
+        }
+    });
+
+    // GET token by ID
+    app.get('/api/token-queue/tokens/:id', checkPermission('view_orders'), async (req, res) => {
+        try {
+            const token = await db.tokenQueue.getToken(req.params.id);
+            if (!token) {
+                return res.status(404).json({ error: 'Token not found' });
+            }
+            res.json(token);
+        } catch (error) {
+            console.error('Error fetching token:', error);
+            res.status(500).json({ error: 'Failed to fetch token' });
+        }
+    });
+
+    // POST call next token
+    app.post('/api/token-queue/call-next', checkPermission('manage_orders'), async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const token = await db.tokenQueue.callNextToken(userId);
+
+            if (!token) {
+                return res.json({ success: false, message: 'No tokens to call' });
+            }
+
+            res.json({ success: true, token });
+        } catch (error) {
+            console.error('Error calling next token:', error);
+            res.status(500).json({ error: 'Failed to call token' });
+        }
+    });
+
+    // POST call specific token
+    app.post('/api/token-queue/tokens/:id/call', checkPermission('manage_orders'), async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const token = await db.tokenQueue.callToken(req.params.id, userId);
+            res.json({ success: true, token });
+        } catch (error) {
+            console.error('Error calling token:', error);
+            res.status(500).json({ error: error.message || 'Failed to call token' });
+        }
+    });
+
+    // POST serve token
+    app.post('/api/token-queue/tokens/:id/serve', checkPermission('manage_orders'), async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const result = await db.tokenQueue.serveToken(req.params.id, userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error serving token:', error);
+            res.status(500).json({ error: error.message || 'Failed to serve token' });
+        }
+    });
+
+    // POST cancel token
+    app.post('/api/token-queue/tokens/:id/cancel', checkPermission('manage_orders'), async (req, res) => {
+        try {
+            const { reason } = req.body;
+            const userId = req.user.id;
+            const result = await db.tokenQueue.cancelToken(req.params.id, userId, reason);
+            res.json(result);
+        } catch (error) {
+            console.error('Error cancelling token:', error);
+            res.status(500).json({ error: error.message || 'Failed to cancel token' });
+        }
+    });
+
+    // GET token history
+    app.get('/api/token-queue/history', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const { limit, status } = req.query;
+            const history = await db.tokenQueue.getTokenHistory(limit || 50, status);
+            res.json(history);
+        } catch (error) {
+            console.error('Error fetching token history:', error);
+            res.status(500).json({ error: 'Failed to fetch token history' });
+        }
+    });
+
+    // GET token statistics
+    app.get('/api/token-queue/stats', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const stats = await db.tokenQueue.getStatistics();
+            res.json(stats);
+        } catch (error) {
+            console.error('Error fetching token statistics:', error);
+            res.status(500).json({ error: 'Failed to fetch statistics' });
+        }
+    });
+
+    // POST reset queue (admin only)
+    app.post('/api/token-queue/reset', checkPermission('manage_settings'), async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const result = await db.tokenQueue.resetQueue(userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error resetting queue:', error);
+            res.status(500).json({ error: 'Failed to reset queue' });
+        }
+    });
+}
+
+// Supplier Management Endpoints
+function addSupplierEndpoints(app, db, checkPermission) {
+
+    // GET all suppliers
+    app.get('/api/suppliers', checkPermission('view_inventory'), async (req, res) => {
+        try {
+            const { active } = req.query;
+            const suppliers = await db.inventoryManager.getAllSuppliers(active !== 'false');
+            res.json(suppliers);
+        } catch (error) {
+            console.error('Error fetching suppliers:', error);
+            res.status(500).json({ error: 'Failed to fetch suppliers' });
+        }
+    });
+
+    // GET supplier by ID
+    app.get('/api/suppliers/:id', checkPermission('view_inventory'), async (req, res) => {
+        try {
+            const supplier = await db.inventoryManager.getSupplier(req.params.id);
+            if (!supplier) {
+                return res.status(404).json({ error: 'Supplier not found' });
+            }
+            res.json(supplier);
+        } catch (error) {
+            console.error('Error fetching supplier:', error);
+            res.status(500).json({ error: 'Failed to fetch supplier' });
+        }
+    });
+
+    // POST create supplier
+    app.post('/api/suppliers', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const supplierData = req.body;
+            const userId = req.user.id;
+            const supplier = await db.inventoryManager.createSupplier(supplierData, userId);
+            res.status(201).json(supplier);
+        } catch (error) {
+            console.error('Error creating supplier:', error);
+            res.status(500).json({ error: 'Failed to create supplier' });
+        }
+    });
+
+    // PUT update supplier
+    app.put('/api/suppliers/:id', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const supplierData = req.body;
+            const userId = req.user.id;
+            const supplier = await db.inventoryManager.updateSupplier(req.params.id, supplierData, userId);
+            res.json(supplier);
+        } catch (error) {
+            console.error('Error updating supplier:', error);
+            res.status(500).json({ error: 'Failed to update supplier' });
+        }
+    });
+
+    // DELETE supplier
+    app.delete('/api/suppliers/:id', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const result = await db.inventoryManager.deleteSupplier(req.params.id, userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error deleting supplier:', error);
+            res.status(500).json({ error: 'Failed to delete supplier' });
+        }
+    });
+
+    // GET search suppliers
+    app.get('/api/suppliers/search', async (req, res) => {
+        try {
+            const { q } = req.query;
+            if (!q) return res.json([]);
+            const suppliers = await db.inventoryManager.searchSuppliers(q);
+            res.json(suppliers);
+        } catch (error) {
+            console.error('Error searching suppliers:', error);
+            res.status(500).json({ error: 'Search failed' });
+        }
+    });
+}
+
+// Purchase Order Endpoints
+function addPurchaseOrderEndpoints(app, db, checkPermission) {
+
+    // GET all purchase orders
+    app.get('/api/purchase-orders', checkPermission('view_inventory'), async (req, res) => {
+        try {
+            const { status } = req.query;
+            const orders = await db.inventoryManager.getAllPurchaseOrders(status);
+            res.json(orders);
+        } catch (error) {
+            console.error('Error fetching purchase orders:', error);
+            res.status(500).json({ error: 'Failed to fetch purchase orders' });
+        }
+    });
+
+    // GET purchase order by ID
+    app.get('/api/purchase-orders/:id', checkPermission('view_inventory'), async (req, res) => {
+        try {
+            const order = await db.inventoryManager.getPurchaseOrder(req.params.id);
+            if (!order) {
+                return res.status(404).json({ error: 'Purchase order not found' });
+            }
+            res.json(order);
+        } catch (error) {
+            console.error('Error fetching purchase order:', error);
+            res.status(500).json({ error: 'Failed to fetch purchase order' });
+        }
+    });
+
+    // POST create purchase order
+    app.post('/api/purchase-orders', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const poData = req.body;
+            const userId = req.user.id;
+            const order = await db.inventoryManager.createPurchaseOrder(poData, userId);
+            res.status(201).json(order);
+        } catch (error) {
+            console.error('Error creating purchase order:', error);
+            res.status(500).json({ error: 'Failed to create purchase order' });
+        }
+    });
+
+    // PUT update purchase order status
+    app.put('/api/purchase-orders/:id/status', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const { status } = req.body;
+            const userId = req.user.id;
+            const order = await db.inventoryManager.updatePOStatus(req.params.id, status, userId);
+            res.json(order);
+        } catch (error) {
+            console.error('Error updating purchase order status:', error);
+            res.status(500).json({ error: 'Failed to update status' });
+        }
+    });
+
+    // POST add item to purchase order
+    app.post('/api/purchase-orders/:id/items', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const itemData = req.body;
+            const userId = req.user.id;
+            const item = await db.inventoryManager.addPurchaseOrderItem(req.params.id, itemData, userId);
+            res.status(201).json(item);
+        } catch (error) {
+            console.error('Error adding item to purchase order:', error);
+            res.status(500).json({ error: 'Failed to add item' });
+        }
+    });
+
+    // PUT update purchase order item
+    app.put('/api/purchase-orders/items/:id', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const itemData = req.body;
+            const userId = req.user.id;
+            const item = await db.inventoryManager.updatePurchaseOrderItem(req.params.id, itemData, userId);
+            res.json(item);
+        } catch (error) {
+            console.error('Error updating purchase order item:', error);
+            res.status(500).json({ error: 'Failed to update item' });
+        }
+    });
+
+    // DELETE purchase order item
+    app.delete('/api/purchase-orders/items/:id', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const result = await db.inventoryManager.deletePurchaseOrderItem(req.params.id, userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error deleting purchase order item:', error);
+            res.status(500).json({ error: 'Failed to delete item' });
+        }
+    });
+
+    // POST receive purchase order items
+    app.post('/api/purchase-orders/:id/receive', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const { items } = req.body;
+            const userId = req.user.id;
+            const result = await db.inventoryManager.receivePOItems(req.params.id, items, userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error receiving purchase order items:', error);
+            res.status(500).json({ error: 'Failed to receive items' });
+        }
+    });
+}
+
+// Reorder Level Endpoints
+function addReorderLevelEndpoints(app, db, checkPermission) {
+
+    // GET items needing reorder
+    app.get('/api/inventory/reorder', checkPermission('view_inventory'), async (req, res) => {
+        try {
+            const items = await db.inventoryManager.getItemsNeedingReorder();
+            res.json(items);
+        } catch (error) {
+            console.error('Error fetching items needing reorder:', error);
+            res.status(500).json({ error: 'Failed to fetch items' });
+        }
+    });
+
+    // GET reorder level for item
+    app.get('/api/inventory/reorder/:itemId', checkPermission('view_inventory'), async (req, res) => {
+        try {
+            const level = await db.inventoryManager.getReorderLevel(req.params.itemId);
+            res.json(level || {});
+        } catch (error) {
+            console.error('Error fetching reorder level:', error);
+            res.status(500).json({ error: 'Failed to fetch reorder level' });
+        }
+    });
+
+    // PUT set reorder level
+    app.put('/api/inventory/reorder/:itemId', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const { threshold, lead_time_days, supplier_id } = req.body;
+            const result = await db.inventoryManager.setReorderLevel(
+                req.params.itemId,
+                threshold,
+                lead_time_days,
+                supplier_id
+            );
+            res.json(result);
+        } catch (error) {
+            console.error('Error setting reorder level:', error);
+            res.status(500).json({ error: 'Failed to set reorder level' });
+        }
+    });
+}
+
+// Inventory Alert Endpoints
+function addInventoryAlertEndpoints(app, db, checkPermission) {
+
+    // GET all inventory alerts
+    app.get('/api/inventory/alerts', checkPermission('view_inventory'), async (req, res) => {
+        try {
+            const { resolved } = req.query;
+            const alerts = await db.inventoryManager.getAllAlerts(resolved === 'true' ? true : null);
+            res.json(alerts);
+        } catch (error) {
+            console.error('Error fetching inventory alerts:', error);
+            res.status(500).json({ error: 'Failed to fetch alerts' });
+        }
+    });
+
+    // POST create inventory alert
+    app.post('/api/inventory/alerts', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const { item_id, alert_type, message } = req.body;
+            const userId = req.user.id;
+            const alert = await db.inventoryManager.createAlert(item_id, alert_type, message, userId);
+            res.status(201).json(alert);
+        } catch (error) {
+            console.error('Error creating inventory alert:', error);
+            res.status(500).json({ error: 'Failed to create alert' });
+        }
+    });
+
+    // POST resolve inventory alert
+    app.post('/api/inventory/alerts/:id/resolve', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const result = await db.inventoryManager.resolveAlert(req.params.id, userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error resolving inventory alert:', error);
+            res.status(500).json({ error: 'Failed to resolve alert' });
+        }
+    });
+}
+
+// Inventory Transfer Endpoints
+function addInventoryTransferEndpoints(app, db, checkPermission) {
+
+    // GET all inventory transfers
+    app.get('/api/inventory/transfers', checkPermission('view_inventory'), async (req, res) => {
+        try {
+            const transfers = await db.inventoryManager.getAllTransfers();
+            res.json(transfers);
+        } catch (error) {
+            console.error('Error fetching inventory transfers:', error);
+            res.status(500).json({ error: 'Failed to fetch transfers' });
+        }
+    });
+
+    // GET inventory transfer by ID
+    app.get('/api/inventory/transfers/:id', checkPermission('view_inventory'), async (req, res) => {
+        try {
+            const transfer = await db.inventoryManager.getTransfer(req.params.id);
+            if (!transfer) {
+                return res.status(404).json({ error: 'Transfer not found' });
+            }
+            res.json(transfer);
+        } catch (error) {
+            console.error('Error fetching inventory transfer:', error);
+            res.status(500).json({ error: 'Failed to fetch transfer' });
+        }
+    });
+
+    // POST create inventory transfer
+    app.post('/api/inventory/transfers', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const transferData = req.body;
+            const userId = req.user.id;
+            const transfer = await db.inventoryManager.createTransfer(transferData, userId);
+            res.status(201).json(transfer);
+        } catch (error) {
+            console.error('Error creating inventory transfer:', error);
+            res.status(500).json({ error: 'Failed to create transfer' });
+        }
+    });
+
+    // POST complete inventory transfer
+    app.post('/api/inventory/transfers/:id/complete', checkPermission('manage_inventory'), async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const result = await db.inventoryManager.completeTransfer(req.params.id, userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error completing inventory transfer:', error);
+            res.status(500).json({ error: 'Failed to complete transfer' });
+        }
+    });
+}
+
+// Order Hold Endpoints
+function addOrderHoldEndpoints(app, db, checkPermission) {
+
+    // GET hold timeout settings
+    app.get('/api/order-hold/settings', checkPermission('manage_settings'), async (req, res) => {
+        try {
+            const settings = await db.orderHold.getHoldTimeoutSettings();
+            res.json(settings || {});
+        } catch (error) {
+            console.error('Error fetching hold timeout settings:', error);
+            res.status(500).json({ error: 'Failed to fetch settings' });
+        }
+    });
+
+    // PUT update hold timeout settings
+    app.put('/api/order-hold/settings', checkPermission('manage_settings'), async (req, res) => {
+        try {
+            const settings = req.body;
+            const result = await db.orderHold.updateHoldTimeoutSettings(settings);
+            res.json(result);
+        } catch (error) {
+            console.error('Error updating hold timeout settings:', error);
+            res.status(500).json({ error: 'Failed to update settings' });
+        }
+    });
+
+    // GET all cancellation reasons
+    app.get('/api/order-hold/cancellation-reasons', checkPermission('view_orders'), async (req, res) => {
+        try {
+            const reasons = await db.orderHold.getAllCancellationReasons();
+            res.json(reasons);
+        } catch (error) {
+            console.error('Error fetching cancellation reasons:', error);
+            res.status(500).json({ error: 'Failed to fetch cancellation reasons' });
+        }
+    });
+
+    // POST add cancellation reason
+    app.post('/api/order-hold/cancellation-reasons', checkPermission('manage_settings'), async (req, res) => {
+        try {
+            const { reason } = req.body;
+            const result = await db.orderHold.addCancellationReason(reason);
+            res.status(201).json(result);
+        } catch (error) {
+            console.error('Error adding cancellation reason:', error);
+            res.status(500).json({ error: 'Failed to add cancellation reason' });
+        }
+    });
+
+    // PUT update cancellation reason
+    app.put('/api/order-hold/cancellation-reasons/:id', checkPermission('manage_settings'), async (req, res) => {
+        try {
+            const { reason, is_active } = req.body;
+            const result = await db.orderHold.updateCancellationReason(req.params.id, reason, is_active);
+            res.json(result);
+        } catch (error) {
+            console.error('Error updating cancellation reason:', error);
+            res.status(500).json({ error: 'Failed to update cancellation reason' });
+        }
+    });
+
+    // POST hold order
+    app.post('/api/orders/:id/hold', checkPermission('manage_orders'), async (req, res) => {
+        try {
+            const { reason, notes, timeout_minutes } = req.body;
+            const userId = req.user.id;
+            const result = await db.orderHold.holdOrder(req.params.id, reason, notes, timeout_minutes, userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error holding order:', error);
+            res.status(500).json({ error: error.message || 'Failed to hold order' });
+        }
+    });
+
+    // POST release order from hold
+    app.post('/api/orders/:id/release', checkPermission('manage_orders'), async (req, res) => {
+        try {
+            const userId = req.user.id;
+            const result = await db.orderHold.releaseOrder(req.params.id, userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error releasing order:', error);
+            res.status(500).json({ error: error.message || 'Failed to release order' });
+        }
+    });
+
+    // GET held orders
+    app.get('/api/orders/held', checkPermission('view_orders'), async (req, res) => {
+        try {
+            const orders = await db.orderHold.getHeldOrders();
+            res.json(orders);
+        } catch (error) {
+            console.error('Error fetching held orders:', error);
+            res.status(500).json({ error: 'Failed to fetch held orders' });
+        }
+    });
+
+    // POST extend hold time
+    app.post('/api/orders/:id/extend-hold', checkPermission('manage_orders'), async (req, res) => {
+        try {
+            const { additional_minutes } = req.body;
+            const userId = req.user.id;
+            const result = await db.orderHold.extendHold(req.params.id, additional_minutes, userId);
+            res.json(result);
+        } catch (error) {
+            console.error('Error extending hold:', error);
+            res.status(500).json({ error: error.message || 'Failed to extend hold' });
+        }
+    });
+
+    // POST cancel order with reason
+    app.post('/api/orders/:id/cancel', checkPermission('manage_orders'), async (req, res) => {
+        try {
+            const { cancellation_reason_id, custom_reason, refund_amount, notes } = req.body;
+            const userId = req.user.id;
+            const result = await db.orderHold.cancelOrder(
+                req.params.id,
+                cancellation_reason_id,
+                custom_reason,
+                refund_amount,
+                notes,
+                userId
+            );
+            res.json(result);
+        } catch (error) {
+            console.error('Error cancelling order:', error);
+            res.status(500).json({ error: error.message || 'Failed to cancel order' });
+        }
+    });
+
+    // GET cancelled orders
+    app.get('/api/orders/cancelled', checkPermission('view_orders'), async (req, res) => {
+        try {
+            const orders = await db.orderHold.getCancelledOrders();
+            res.json(orders);
+        } catch (error) {
+            console.error('Error fetching cancelled orders:', error);
+            res.status(500).json({ error: 'Failed to fetch cancelled orders' });
+        }
+    });
+
+    // GET hold/cancel statistics
+    app.get('/api/order-hold/stats', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const stats = await db.orderHold.getHoldCancelStatistics();
+            res.json(stats);
+        } catch (error) {
+            console.error('Error fetching hold/cancel statistics:', error);
+            res.status(500).json({ error: 'Failed to fetch statistics' });
+        }
+    });
+
+    // GET hold/cancel report
+    app.get('/api/reports/hold-cancel', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const { start_date, end_date } = req.query;
+            if (!start_date || !end_date) {
+                return res.status(400).json({ error: 'Start date and end date are required' });
+            }
+            const report = await db.orderHold.getHoldCancelReport(start_date, end_date);
+            res.json(report);
+        } catch (error) {
+            console.error('Error fetching hold/cancel report:', error);
+            res.status(500).json({ error: 'Failed to fetch report' });
+        }
+    });
+
+    // GET cancellation reasons report
+    app.get('/api/reports/cancellation-reasons', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const { start_date, end_date } = req.query;
+            if (!start_date || !end_date) {
+                return res.status(400).json({ error: 'Start date and end date are required' });
+            }
+            const report = await db.orderHold.getCancellationReasonsReport(start_date, end_date);
+            res.json(report);
+        } catch (error) {
+            console.error('Error fetching cancellation reasons report:', error);
+            res.status(500).json({ error: 'Failed to fetch report' });
+        }
+    });
+
+    // GET hold duration distribution
+    app.get('/api/reports/hold-duration', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const report = await db.orderHold.getHoldDurationDistribution();
+            res.json(report);
+        } catch (error) {
+            console.error('Error fetching hold duration distribution:', error);
+            res.status(500).json({ error: 'Failed to fetch report' });
+        }
+    });
+}
+
+// Inventory Report Endpoints
+function addInventoryReportEndpoints(app, db, checkPermission) {
+
+    // GET inventory summary report
+    app.get('/api/reports/inventory-summary', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const summary = await db.inventoryManager.getInventorySummary();
+            res.json(summary);
+        } catch (error) {
+            console.error('Error fetching inventory summary:', error);
+            res.status(500).json({ error: 'Failed to fetch inventory summary' });
+        }
+    });
+
+    // GET stock movement report
+    app.get('/api/reports/stock-movement', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const { start_date, end_date } = req.query;
+            if (!start_date || !end_date) {
+                return res.status(400).json({ error: 'Start date and end date are required' });
+            }
+            const report = await db.inventoryManager.getStockMovementReport(start_date, end_date);
+            res.json(report);
+        } catch (error) {
+            console.error('Error fetching stock movement report:', error);
+            res.status(500).json({ error: 'Failed to fetch stock movement report' });
+        }
+    });
+
+    // GET purchase order report
+    app.get('/api/reports/purchase-orders', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const { start_date, end_date, status } = req.query;
+            if (!start_date || !end_date) {
+                return res.status(400).json({ error: 'Start date and end date are required' });
+            }
+            const report = await db.inventoryManager.getPurchaseOrderReport(start_date, end_date, status);
+            res.json(report);
+        } catch (error) {
+            console.error('Error fetching purchase order report:', error);
+            res.status(500).json({ error: 'Failed to fetch purchase order report' });
+        }
+    });
+
+    // GET supplier performance report
+    app.get('/api/reports/supplier-performance', checkPermission('view_reports'), async (req, res) => {
+        try {
+            const { start_date, end_date } = req.query;
+            if (!start_date || !end_date) {
+                return res.status(400).json({ error: 'Start date and end date are required' });
+            }
+            const report = await db.inventoryManager.getSupplierPerformanceReport(start_date, end_date);
+            res.json(report);
+        } catch (error) {
+            console.error('Error fetching supplier performance report:', error);
+            res.status(500).json({ error: 'Failed to fetch supplier performance report' });
+        }
+    });
+}
+
 module.exports = {
     addUserManagementEndpoints,
     addRoleManagementEndpoints,
     addCustomerManagementEndpoints,
     addInventoryManagementEndpoints,
     addReportingEndpoints,
-    addBackupEndpoints
+    addBackupEndpoints,
+    addTokenQueueEndpoints,
+    addSupplierEndpoints,
+    addPurchaseOrderEndpoints,
+    addReorderLevelEndpoints,
+    addInventoryAlertEndpoints,
+    addInventoryTransferEndpoints,
+    addOrderHoldEndpoints,
+    addInventoryReportEndpoints
 };

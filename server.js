@@ -90,7 +90,17 @@ async function startServer() {
     mvpEndpoints.addReportingEndpoints(app, db, checkPermission);
     mvpEndpoints.addBackupEndpoints(app, db, checkPermission);
 
-    console.log('MVP endpoints added successfully');
+    // Add new enterprise endpoints
+    mvpEndpoints.addTokenQueueEndpoints(app, db, checkPermission);
+    mvpEndpoints.addSupplierEndpoints(app, db, checkPermission);
+    mvpEndpoints.addPurchaseOrderEndpoints(app, db, checkPermission);
+    mvpEndpoints.addReorderLevelEndpoints(app, db, checkPermission);
+    mvpEndpoints.addInventoryAlertEndpoints(app, db, checkPermission);
+    mvpEndpoints.addInventoryTransferEndpoints(app, db, checkPermission);
+    mvpEndpoints.addOrderHoldEndpoints(app, db, checkPermission);
+    mvpEndpoints.addInventoryReportEndpoints(app, db, checkPermission);
+
+    console.log('All endpoints added successfully');
 
   } catch (error) {
     console.error('Failed to initialize database:', error);
@@ -1018,7 +1028,11 @@ async function startServer() {
     mvpEndpoints.addReportingEndpoints(app, db, checkPermission);
     mvpEndpoints.addBackupEndpoints(app, db, checkPermission);
 
-    console.log('MVP endpoints added successfully');
+    // Add enterprise endpoints
+    const enterpriseEndpoints = require('./js/enterprise-endpoints.js');
+    app.use(enterpriseEndpoints);
+
+    console.log('All endpoints added successfully');
 
   } catch (error) {
     console.error('Failed to initialize database:', error);

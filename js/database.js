@@ -14,6 +14,11 @@ if (!fs.existsSync(dataDir)) {
 let db = null;
 let SQL = null;
 
+// Initialize enhanced modules
+let tokenQueueManager = null;
+let inventoryManager = null;
+let orderHoldManager = null;
+
 // Initialize database
 async function initDatabase() {
   SQL = await initSqlJs();
@@ -244,6 +249,172 @@ async function initDatabase() {
 
     console.log('Default tax settings created');
   }
+
+  // Create enterprise tables if not exists
+  db.run(`
+    CREATE TABLE IF NOT EXISTS locations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      address TEXT,
+      city TEXT,
+      state TEXT,
+      postal_code TEXT,
+      phone TEXT,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER,
+      action TEXT NOT NULL,
+      table_name TEXT,
+      record_id INTEGER,
+      old_values TEXT,
+      new_values TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS scheduled_reports (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      report_type TEXT NOT NULL,
+      schedule_cron TEXT NOT NULL,
+      time_zone TEXT DEFAULT 'UTC',
+      email_to TEXT,
+      email_cc TEXT,
+      email_bcc TEXT,
+      format TEXT DEFAULT 'pdf',
+      is_active INTEGER DEFAULT 1,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS report_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      query_sql TEXT NOT NULL,
+      columns TEXT NOT NULL,
+      filters TEXT DEFAULT '{}',
+      is_public INTEGER DEFAULT 0,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS backup_schedules (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      schedule_cron TEXT NOT NULL,
+      time_zone TEXT DEFAULT 'UTC',
+      retention_days INTEGER DEFAULT 30,
+      backup_location TEXT DEFAULT 'local',
+      is_active INTEGER DEFAULT 1,
+      created_by INTEGER NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (created_by) REFERENCES users(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS backup_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      schedule_id INTEGER,
+      backup_path TEXT NOT NULL,
+      file_size INTEGER,
+      status TEXT DEFAULT 'pending',
+      started_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      completed_at DATETIME,
+      error_message TEXT,
+      FOREIGN KEY (schedule_id) REFERENCES backup_schedules(id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS system_health (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      check_type TEXT NOT NULL,
+      status TEXT NOT NULL,
+      details TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Add location_id to existing tables
+  db.run('PRAGMA table_info(orders)');
+  const ordersInfo = db.exec('PRAGMA table_info(orders)');
+  if (!ordersInfo.some(row => row.values.some(v => v === 'location_id'))) {
+    db.run('ALTER TABLE orders ADD COLUMN location_id INTEGER DEFAULT 1');
+  }
+
+  db.run('PRAGMA table_info(menu_items)');
+  const menuInfo = db.exec('PRAGMA table_info(menu_items)');
+  if (!menuInfo.some(row => row.values.some(v => v === 'location_id'))) {
+    db.run('ALTER TABLE menu_items ADD COLUMN location_id INTEGER DEFAULT 1');
+  }
+
+  db.run('PRAGMA table_info(inventory_transactions)');
+  const invInfo = db.exec('PRAGMA table_info(inventory_transactions)');
+  if (!invInfo.some(row => row.values.some(v => v === 'location_id'))) {
+    db.run('ALTER TABLE inventory_transactions ADD COLUMN location_id INTEGER DEFAULT 1');
+  }
+
+  db.run('PRAGMA table_info(customers)');
+  const custInfo = db.exec('PRAGMA table_info(customers)');
+  if (!custInfo.some(row => row.values.some(v => v === 'location_id'))) {
+    db.run('ALTER TABLE customers ADD COLUMN location_id INTEGER DEFAULT 1');
+  }
+
+  db.run('PRAGMA table_info(users)');
+  const userInfo = db.exec('PRAGMA table_info(users)');
+  if (!userInfo.some(row => row.values.some(v => v === 'location_id'))) {
+    db.run('ALTER TABLE users ADD COLUMN location_id INTEGER DEFAULT 1');
+  }
+
+  // Create default location
+  const locationResult = db.exec('SELECT COUNT(*) as count FROM locations');
+  let locationCount = 0;
+  if (locationResult.length > 0) {
+    locationCount = locationResult[0].values[0][0];
+  }
+
+  if (locationCount === 0) {
+    db.run(`INSERT INTO locations (name, address, city, state, postal_code, phone, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      ['Main Location', '123 Main Street', 'City', 'State', '12345', '555-1234', 1]);
+
+    console.log('Default location created');
+  }
+
+  // Initialize enhanced modules
+  const TokenQueueManager = require('./token-queue-manager');
+  const InventoryManager = require('./inventory-manager');
+  const OrderHoldManager = require('./order-hold-manager');
+
+  tokenQueueManager = new TokenQueueManager(db);
+  await tokenQueueManager.init();
+
+  inventoryManager = new InventoryManager(db);
+  await inventoryManager.init();
+
+  orderHoldManager = new OrderHoldManager(db);
+  await orderHoldManager.init();
 
   // Create sample menu items if not exists
   const existingItems = db.exec('SELECT COUNT(*) as count FROM menu_items');
@@ -1226,6 +1397,10 @@ module.exports = {
   inventory: dbOps.inventory,
   reports: dbOps.reports,
   backup: dbOps.backup,
+  // Enhanced modules
+  tokenQueue: tokenQueueManager,
+  inventoryManager: inventoryManager,
+  orderHold: orderHoldManager,
   // Query helper for raw SQL
   query: (sql, params = []) => {
     try {
