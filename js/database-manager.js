@@ -242,8 +242,42 @@ class DatabaseManager extends EventEmitter {
     getDatabaseStatus() {
         return {
             ...this.status,
-            isHealthy: this.status.connected && this.status.schemaValid && this.status.currentStatus === DatabaseStatus.READY
+            isHealthy: this.status.connected && this.status.schemaValid && this.status.currentStatus === DatabaseStatus.READY,
+            isReady: this.status.currentStatus === DatabaseStatus.READY
         };
+    }
+
+    /**
+     * Check if database is ready for operations
+     * @returns {boolean} True if database is ready
+     */
+    isDatabaseReady() {
+        return this.status.currentStatus === DatabaseStatus.READY;
+    }
+
+    /**
+     * Wait for database to be ready
+     * @param {number} timeout - Maximum time to wait in milliseconds
+     * @returns {Promise<void>}
+     */
+    async waitForDatabaseReady(timeout = 30000) {
+        if (this.isDatabaseReady()) {
+            return;
+        }
+
+        return new Promise((resolve, reject) => {
+            const timeoutId = setTimeout(() => {
+                this.removeListener('database-ready', onReady);
+                reject(new Error('Database did not become ready within the specified timeout'));
+            }, timeout);
+
+            const onReady = () => {
+                clearTimeout(timeoutId);
+                resolve();
+            };
+
+            this.once('database-ready', onReady);
+        });
     }
 
     /**
@@ -321,6 +355,405 @@ class DatabaseManager extends EventEmitter {
         }
 
         return this.database;
+    }
+
+    /**
+     * Queue an operation for offline sync
+     * @param {string} operationType - Type of operation
+     * @param {string} entityType - Entity type
+     * @param {number} entityId - Entity ID
+     * @param {any} payload - Operation payload
+     * @param {number} syncSessionId - Optional sync session ID
+     * @returns {Promise<object>} Queued operation record
+     */
+    async queueOfflineOperation(operationType, entityType, entityId, payload, syncSessionId = null) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        const result = await this.database.execute(
+            `INSERT INTO sync_queue
+             (operation_type, entity_type, entity_id, payload, status, sync_session_id)
+             VALUES (?, ?, ?, ?, 'pending', ?)`,
+            [operationType, entityType, entityId, JSON.stringify(payload), syncSessionId]
+        );
+
+        // Update sync_metadata pending operations count
+        await this.database.execute(
+            `UPDATE sync_metadata
+             SET pending_operations_count = pending_operations_count + 1,
+                 updated_at = CURRENT_TIMESTAMP
+             WHERE id = 1`
+        );
+
+        return this.database.getById('sync_queue', result.lastID);
+    }
+
+    /**
+     * Get pending offline operations
+     * @param {string} status - Optional status filter
+     * @param {string} entityType - Optional entity type filter
+     * @param {number} limit - Optional limit
+     * @returns {Promise<Array>} Array of pending operations
+     */
+    async getPendingOfflineOperations(status = 'pending', entityType = null, limit = null) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        let query = `SELECT * FROM sync_queue WHERE status = ?`;
+        const params = [status];
+
+        if (entityType) {
+            query += ` AND entity_type = ?`;
+            params.push(entityType);
+        }
+
+        if (limit) {
+            query += ` LIMIT ?`;
+            params.push(limit);
+        }
+
+        query += ` ORDER BY created_at ASC`;
+
+        return await this.database.query(query, params);
+    }
+
+    /**
+     * Update offline operation status
+     * @param {number} operationId - Operation ID
+     * @param {string} status - New status
+     * @param {string} errorMessage - Optional error message
+     * @returns {Promise<object>} Updated operation
+     */
+    async updateOfflineOperationStatus(operationId, status, errorMessage = null) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        let query = `UPDATE sync_queue SET status = ?, updated_at = CURRENT_TIMESTAMP`;
+        const params = [status];
+
+        if (errorMessage) {
+            query += `, last_error = ?`;
+            params.push(errorMessage);
+        }
+
+        query += ` WHERE id = ?`;
+        params.push(operationId);
+
+        await this.database.execute(query, params);
+
+        // Update sync_metadata pending operations count
+        if (status === 'completed' || status === 'failed') {
+            await this.database.execute(
+                `UPDATE sync_metadata
+                 SET pending_operations_count =
+                     (SELECT COUNT(*) FROM sync_queue WHERE status = 'pending'),
+                 updated_at = CURRENT_TIMESTAMP
+                 WHERE id = 1`
+            );
+        }
+
+        return this.database.getById('sync_queue', operationId);
+    }
+
+    /**
+     * Record sync history
+     * @param {number} syncQueueId - Sync queue ID
+     * @param {string} operationType - Operation type
+     * @param {string} entityType - Entity type
+     * @param {number} entityId - Entity ID
+     * @param {string} status - Sync status
+     * @param {string} serverResponse - Server response
+     * @param {number} syncSessionId - Sync session ID
+     * @returns {Promise<object>} Created history record
+     */
+    async recordSyncHistory(syncQueueId, operationType, entityType, entityId, status, serverResponse, syncSessionId) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        return await this.database.execute(
+            `INSERT INTO sync_history
+             (sync_queue_id, operation_type, entity_type, entity_id, status,
+              started_at, completed_at, server_response, sync_session_id)
+             VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, ?, ?)`,
+            [syncQueueId, operationType, entityType, entityId, status, serverResponse || null, syncSessionId]
+        );
+    }
+
+    /**
+     * Create conflict resolution record
+     * @param {string} entityType - Entity type
+     * @param {number} entityId - Entity ID
+     * @param {string} conflictType - Conflict type
+     * @param {string} localVersion - Local version
+     * @param {string} localTimestamp - Local timestamp
+     * @param {string} remoteVersion - Remote version
+     * @param {string} remoteTimestamp - Remote timestamp
+     * @param {string} resolutionStrategy - Resolution strategy
+     * @param {string} status - Status
+     * @param {number} syncSessionId - Sync session ID
+     * @param {string} notes - Optional notes
+     * @returns {Promise<object>} Created conflict record
+     */
+    async createConflictResolution(
+        entityType, entityId, conflictType, localVersion, localTimestamp,
+        remoteVersion, remoteTimestamp, resolutionStrategy, status, syncSessionId, notes = null
+    ) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        return await this.database.execute(
+            `INSERT INTO conflict_resolution
+             (entity_type, entity_id, conflict_type, local_version,
+              local_timestamp, remote_version, remote_timestamp,
+              resolution_strategy, status, notes, sync_session_id)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                entityType, entityId, conflictType, localVersion, localTimestamp,
+                remoteVersion, remoteTimestamp, resolutionStrategy, status, notes || null, syncSessionId
+            ]
+        );
+    }
+
+    /**
+     * Get unresolved conflicts
+     * @param {string} entityType - Optional entity type filter
+     * @returns {Promise<Array>} Array of unresolved conflicts
+     */
+    async getUnresolvedConflicts(entityType = null) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        let query = `SELECT * FROM conflict_resolution WHERE status = 'unresolved'`;
+        const params = [];
+
+        if (entityType) {
+            query += ` AND entity_type = ?`;
+            params.push(entityType);
+        }
+
+        query += ` ORDER BY created_at ASC`;
+
+        return await this.database.query(query, params);
+    }
+
+    /**
+     * Resolve conflict
+     * @param {number} conflictId - Conflict ID
+     * @param {string} resolvedVersion - Resolved version
+     * @param {string} resolutionStrategy - Resolution strategy
+     * @param {string} resolvedBy - Who resolved it
+     * @param {string} notes - Optional notes
+     * @returns {Promise<object>} Updated conflict record
+     */
+    async resolveConflict(conflictId, resolvedVersion, resolutionStrategy, resolvedBy, notes = null) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        await this.database.execute(
+            `UPDATE conflict_resolution
+             SET resolved_version = ?,
+                 resolution_strategy = ?,
+                 resolved_by = ?,
+                 resolved_at = CURRENT_TIMESTAMP,
+                 status = 'resolved',
+                 notes = ?
+             WHERE id = ?`,
+            [resolvedVersion, resolutionStrategy, resolvedBy, notes || null, conflictId]
+        );
+
+        return this.database.getById('conflict_resolution', conflictId);
+    }
+
+    /**
+     * Get sync metadata
+     * @returns {Promise<object>} Sync metadata
+     */
+    async getSyncMetadata() {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        return await this.database.getById('sync_metadata', 1);
+    }
+
+    /**
+     * Update sync metadata
+     * @param {object} updates - Updates to apply
+     * @returns {Promise<object>} Updated sync metadata
+     */
+    async updateSyncMetadata(updates) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        const setClauses = [];
+        const params = [];
+
+        if (updates.last_sync_timestamp !== undefined) {
+            setClauses.push('last_sync_timestamp = ?');
+            params.push(updates.last_sync_timestamp);
+        }
+
+        if (updates.last_full_sync_timestamp !== undefined) {
+            setClauses.push('last_full_sync_timestamp = ?');
+            params.push(updates.last_full_sync_timestamp);
+        }
+
+        if (updates.last_known_server_version !== undefined) {
+            setClauses.push('last_known_server_version = ?');
+            params.push(updates.last_known_server_version);
+        }
+
+        if (setClauses.length === 0) {
+            throw new Error('No updates provided');
+        }
+
+        setClauses.push('updated_at = CURRENT_TIMESTAMP');
+
+        const query = `UPDATE sync_metadata SET ${setClauses.join(', ')} WHERE id = 1`;
+        await this.database.execute(query, params);
+
+        return this.getSyncMetadata();
+    }
+
+    /**
+     * Get sync session by ID
+     * @param {number} sessionId - Sync session ID
+     * @returns {Promise<object>} Sync session
+     */
+    async getSyncSession(sessionId) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        return await this.database.getById('offline_sessions', sessionId);
+    }
+
+    /**
+     * Get active sync sessions
+     * @returns {Promise<Array>} Array of active sync sessions
+     */
+    async getActiveSyncSessions() {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        return await this.database.query(
+            `SELECT * FROM offline_sessions WHERE status = 'active' ORDER BY started_at DESC`
+        );
+    }
+
+    /**
+     * Get recent sync sessions
+     * @param {number} limit - Number of sessions to retrieve
+     * @returns {Promise<Array>} Array of recent sync sessions
+     */
+    async getRecentSyncSessions(limit = 10) {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        return await this.database.query(
+            `SELECT * FROM offline_sessions ORDER BY started_at DESC LIMIT ?`,
+            [limit]
+        );
+    }
+
+    /**
+     * Get sync statistics
+     * @returns {Promise<object>} Sync statistics
+     */
+    async getSyncStatistics() {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        const [pendingOps, completedOps, failedOps, conflicts] = await Promise.all([
+            this.database.query('SELECT COUNT(*) as count FROM sync_queue WHERE status = ?', ['pending']),
+            this.database.query('SELECT COUNT(*) as count FROM sync_queue WHERE status = ?', ['completed']),
+            this.database.query('SELECT COUNT(*) as count FROM sync_queue WHERE status = ?', ['failed']),
+            this.database.query('SELECT COUNT(*) as count FROM conflict_resolution WHERE status = ?', ['unresolved'])
+        ]);
+
+        return {
+            pendingOperations: pendingOps[0].count,
+            completedOperations: completedOps[0].count,
+            failedOperations: failedOps[0].count,
+            unresolvedConflicts: conflicts[0].count
+        };
+    }
+
+    /**
+     * Verify data integrity after sync
+     * @returns {Promise<object>} Integrity verification results
+     */
+    async verifyDataIntegrity() {
+        if (!this.database) {
+            throw new Error('Database not initialized');
+        }
+
+        const results = {
+            checks: {},
+            passed: true,
+            errors: []
+        };
+
+        try {
+            // Check for orphaned records
+            const orphanedOrders = await this.database.query(
+                `SELECT COUNT(*) as count
+                 FROM orders
+                 WHERE sync_status = 'pending'
+                 AND id NOT IN (SELECT entity_id FROM sync_queue WHERE entity_type = 'orders' AND status = 'pending')`
+            );
+
+            results.checks.orphanedOrders = orphanedOrders[0].count;
+            if (orphanedOrders[0].count > 0) {
+                results.passed = false;
+                results.errors.push(`Found ${orphanedOrders[0].count} orphaned orders`);
+            }
+
+            // Check for inconsistent sync status
+            const inconsistentOrders = await this.database.query(
+                `SELECT COUNT(*) as count
+                 FROM orders
+                 WHERE sync_status = 'synced'
+                 AND id IN (SELECT entity_id FROM sync_queue WHERE entity_type = 'orders' AND status = 'pending')`
+            );
+
+            results.checks.inconsistentOrders = inconsistentOrders[0].count;
+            if (inconsistentOrders[0].count > 0) {
+                results.passed = false;
+                results.errors.push(`Found ${inconsistentOrders[0].count} orders with inconsistent sync status`);
+            }
+
+            // Check sync_metadata consistency
+            const metadata = await this.getSyncMetadata();
+            const actualPending = await this.database.query(
+                'SELECT COUNT(*) as count FROM sync_queue WHERE status = ?', ['pending']
+            );
+
+            if (metadata.pending_operations_count !== actualPending[0].count) {
+                results.passed = false;
+                results.errors.push(
+                    `Sync metadata pending count (${metadata.pending_operations_count}) ` +
+                    `doesn't match actual count (${actualPending[0].count})`
+                );
+            }
+
+        } catch (error) {
+            results.passed = false;
+            results.errors.push(`Data integrity check failed: ${error.message}`);
+        }
+
+        return results;
     }
 }
 

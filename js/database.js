@@ -2,6 +2,7 @@
 const initSqlJs = require('sql.js');
 const fs = require('fs');
 const path = require('path');
+const bcrypt = require('bcryptjs');
 
 const dbPath = path.join(__dirname, '..', 'data', 'cafe_pos.db');
 const dataDir = path.dirname(dbPath);
@@ -48,6 +49,13 @@ async function initDatabase() {
       FOREIGN KEY (role_id) REFERENCES roles(id)
     )
   `);
+
+  // Add is_active column to users table if it doesn't exist (for existing databases)
+  const usersTableInfo = db.exec('PRAGMA table_info(users)');
+  const usersTableColumns = resultToObjects(usersTableInfo).map(row => row.name);
+  if (!usersTableColumns.includes('is_active')) {
+    db.run('ALTER TABLE users ADD COLUMN is_active INTEGER DEFAULT 1');
+  }
 
   db.run(`
     CREATE TABLE IF NOT EXISTS roles (
@@ -191,6 +199,7 @@ async function initDatabase() {
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT,
+      description TEXT,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
@@ -358,33 +367,33 @@ async function initDatabase() {
   `);
 
   // Add location_id to existing tables
-  db.run('PRAGMA table_info(orders)');
   const ordersInfo = db.exec('PRAGMA table_info(orders)');
-  if (!ordersInfo.some(row => row.values.some(v => v === 'location_id'))) {
+  const ordersColumns = resultToObjects(ordersInfo).map(row => row.name);
+  if (!ordersColumns.includes('location_id')) {
     db.run('ALTER TABLE orders ADD COLUMN location_id INTEGER DEFAULT 1');
   }
 
-  db.run('PRAGMA table_info(menu_items)');
   const menuInfo = db.exec('PRAGMA table_info(menu_items)');
-  if (!menuInfo.some(row => row.values.some(v => v === 'location_id'))) {
+  const menuColumns = resultToObjects(menuInfo).map(row => row.name);
+  if (!menuColumns.includes('location_id')) {
     db.run('ALTER TABLE menu_items ADD COLUMN location_id INTEGER DEFAULT 1');
   }
 
-  db.run('PRAGMA table_info(inventory_transactions)');
   const invInfo = db.exec('PRAGMA table_info(inventory_transactions)');
-  if (!invInfo.some(row => row.values.some(v => v === 'location_id'))) {
+  const invColumns = resultToObjects(invInfo).map(row => row.name);
+  if (!invColumns.includes('location_id')) {
     db.run('ALTER TABLE inventory_transactions ADD COLUMN location_id INTEGER DEFAULT 1');
   }
 
-  db.run('PRAGMA table_info(customers)');
   const custInfo = db.exec('PRAGMA table_info(customers)');
-  if (!custInfo.some(row => row.values.some(v => v === 'location_id'))) {
+  const custColumns = resultToObjects(custInfo).map(row => row.name);
+  if (!custColumns.includes('location_id')) {
     db.run('ALTER TABLE customers ADD COLUMN location_id INTEGER DEFAULT 1');
   }
 
-  db.run('PRAGMA table_info(users)');
   const userInfo = db.exec('PRAGMA table_info(users)');
-  if (!userInfo.some(row => row.values.some(v => v === 'location_id'))) {
+  const userColumns = resultToObjects(userInfo).map(row => row.name);
+  if (!userColumns.includes('location_id')) {
     db.run('ALTER TABLE users ADD COLUMN location_id INTEGER DEFAULT 1');
   }
 
@@ -508,6 +517,18 @@ const userOps = {
   updateLastLogin: (id) => {
     db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [id]);
     saveDatabase();
+  },
+
+  getByPin: (pin) => {
+    const result = db.exec('SELECT * FROM users');
+    const users = resultToObjects(result);
+    
+    for (const user of users) {
+      if (user.pin_hash && bcrypt.compareSync(pin, user.pin_hash)) {
+        return user;
+      }
+    }
+    return null;
   }
 };
 
@@ -835,9 +856,9 @@ const settingOps = {
 
   set: (key, value) => {
     db.run(`
-      INSERT OR REPLACE INTO settings (key, value, updated_at)
-      VALUES (?, ?, CURRENT_TIMESTAMP)
-    `, [key, value]);
+      INSERT OR REPLACE INTO settings (key, value, description, updated_at)
+      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+    `, [key, value, null]);
     saveDatabase();
   },
   
@@ -854,9 +875,9 @@ const settingOps = {
   updateMultiple: (settingsObj) => {
     for (const [key, value] of Object.entries(settingsObj)) {
       db.run(`
-        INSERT OR REPLACE INTO settings (key, value, updated_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
-      `, [key, value]);
+        INSERT OR REPLACE INTO settings (key, value, description, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+      `, [key, value, null]);
     }
     saveDatabase();
   }
@@ -1385,12 +1406,12 @@ module.exports = {
   taxOps,
   settingsOps: settingOps,
   settingOps,
-  // New dbOps structure
+  // New dbOps structure - merge userOps with dbOps.user
   user: {
     ...userOps,
     ...dbOps.user,
     // Ensure getByPin is accessible
-    getByPin: dbOps.user.getByPin
+    // getByPin: dbOps.user.getByPin
   },
   roles: dbOps.role,
   customer: dbOps.customer,

@@ -80,12 +80,9 @@
         <h1 x-text="appSettings.business_name">Cafe POS</h1>
         <div class="date-time">
           <span class="current-time" x-text="currentTime"></span>
-          <span class="current-date" x-text="currentDate"></span>
         </div>
       </div>
-      <div class="header-center">
-        <div class="current-time" x-text="currentTime"></div>
-      </div>
+
       <div class="header-right">
         <button class="btn btn-icon" @click="toggleTheme()" title="Toggle Theme"
           x-text="theme === 'light' ? '🌙' : '☀️'"></button>
@@ -106,9 +103,8 @@
           x-show="orders.length === 0">📥</button>
         <div class="user-info" x-show="currentUser">
           <span class="user-name" x-text="currentUser?.full_name || currentUser?.username || 'User'"></span>
-          <span class="user-role" x-text="currentUser?.role"></span>
         </div>
-        <button class="btn btn-icon" @click="logout()" title="Logout">🚪</button>
+        <button class="btn btn-icon" @click="logout()" title="Logout">➜]</button>
       </div>
     </header>
     <style>
@@ -176,6 +172,86 @@
           </template>
         </div>
 
+        <!-- Advanced Features Toolbar -->
+        <div class="advanced-features-toolbar">
+          <button class="btn btn-small btn-primary" @click="showTableManagement = true" title="Table Management">🍽️ Tables</button>
+          <button class="btn btn-small btn-primary" @click="showKDSManagement = true" title="Kitchen Display System">👨‍🍳 KDS</button>
+          <button class="btn btn-small btn-primary" @click="showSplitBilling = true" title="Split Billing">💰 Split</button>
+          <button class="btn btn-small btn-primary" @click="showCashDrawerManagement = true" title="Cash Drawer">💵 Cash</button>
+          <button class="btn btn-small btn-primary" @click="showVoidRefund = true" title="Void/Refund">❌ Void</button>
+        </div>
+
+        <!-- Table Management Modal -->
+        <div id="table-modal" class="modal" :class="{ 'active': showTableManagement }">
+          <div class="modal-content modal-large">
+            <div class="modal-header">
+              <h2>🍽️ Table Management</h2>
+              <button class="btn btn-icon" @click="showTableManagement = false">✕</button>
+            </div>
+            <div class="table-management">
+              <div class="table-toolbar">
+                <button class="btn btn-primary" @click="showTableForm()">+ Add Table</button>
+                <button class="btn btn-secondary" @click="showTableLayout = !showTableLayout">
+                  <span x-text="showTableLayout ? 'List View' : 'Layout View'"></span>
+                </button>
+              </div>
+              
+              <!-- Table Layout View -->
+              <div x-show="showTableLayout" class="table-layout">
+                <div class="layout-grid">
+                  <template x-for="table in tables" :key="table.id">
+                    <div class="table-card" :class="table.status">
+                      <div class="table-info">
+                        <h3 x-text="table.table_number"></h3>
+                        <p x-text="table.name"></p>
+                        <span class="table-status" x-text="table.status.toUpperCase()"></span>
+                      </div>
+                      <div class="table-actions">
+                        <button class="btn btn-small btn-primary" @click="assignTableToOrder(table)">Assign</button>
+                        <button class="btn btn-small btn-secondary" @click="transferOrder(table)">Transfer</button>
+                        <button class="btn btn-small btn-danger" @click="clearTable(table)">Clear</button>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+
+              <!-- Table List View -->
+              <div x-show="!showTableLayout" class="table-list">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Table</th>
+                      <th>Name</th>
+                      <th>Status</th>
+                      <th>Order</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <template x-for="table in tables" :key="table.id">
+                      <tr>
+                        <td x-text="table.table_number"></td>
+                        <td x-text="table.name"></td>
+                        <td>
+                          <span class="badge" :class="table.status === 'occupied' ? 'badge-danger' : 'badge-success'"
+                            x-text="table.status"></span>
+                        </td>
+                        <td x-text="table.order_id || '-'"></td>
+                        <td class="table-actions">
+                          <button class="btn btn-small btn-primary" @click="assignTableToOrder(table)">Assign</button>
+                          <button class="btn btn-small btn-secondary" @click="transferOrder(table)">Transfer</button>
+                          <button class="btn btn-small btn-danger" @click="clearTable(table)">Clear</button>
+                        </td>
+                      </tr>
+                    </template>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Search Bar -->
         <div class="search-container">
           <input type="text" x-model.debounce.300ms="searchQuery" placeholder="🔍 Search menu items...">
@@ -185,10 +261,10 @@
         <div class="menu-grid">
           <template x-for="item in filteredItems" :key="item.id">
             <div class="menu-item" :class="{ 'unavailable': !item.is_available }"
-              @click="item.is_available && addToCart(item)" tabindex="0" role="button"
+              @click="item.is_available && showItemDetails(item)" tabindex="0" role="button"
               :aria-label="'Add ' + item.name + ' to cart - Price ' + formatCurrency(item.price)"
-              @keydown.enter="item.is_available && addToCart(item)"
-              @keydown.space.prevent="item.is_available && addToCart(item)">
+              @keydown.enter="item.is_available && showItemDetails(item)"
+              @keydown.space.prevent="item.is_available && showItemDetails(item)">
               <div class="menu-item-content">
                 <div class="menu-item-icon" x-text="item.category_icon || '🍽️'" aria-hidden="true"></div>
                 <div class="menu-item-info">
@@ -224,6 +300,10 @@
               <div class="cart-item">
                 <div class="cart-item-info">
                   <div class="cart-item-name" x-text="item.name"></div>
+                  <div class="cart-item-modifiers" x-show="item.modifiers && item.modifiers.length > 0">
+                    <span class="modifier-label">+ </span>
+                    <span x-text="item.modifiers.map(m => m.name).join(', ')"></span>
+                  </div>
                   <div class="cart-item-price" x-text="formatCurrency(item.price) + ' each'"></div>
                   <input type="text" class="cart-item-notes" x-model="item.notes" placeholder="Add note..." @click.stop>
                 </div>
@@ -623,6 +703,696 @@
           
           <div class="settings-actions">
             <button class="btn btn-danger" @click="logout()">Logout</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Item Details Modal (for modifiers, combos, etc.) -->
+    <div id="item-details-modal" class="modal" :class="{ 'active': showItemDetailsModal }">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2 x-text="selectedItem?.name || 'Item Details'"></h2>
+          <button class="btn btn-icon" @click="showItemDetailsModal = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <!-- Weighted Item Input -->
+          <div x-show="selectedItem?.is_weighted" class="weighted-item-section">
+            <h3>⚖️ Weighted Item</h3>
+            <div class="form-group">
+              <label>Weight (grams)</label>
+              <input type="number" x-model.number="itemWeight" min="0" step="0.1" placeholder="Enter weight">
+              <div class="weight-info">
+                <span>Current Price: <strong x-text="formatCurrency(weightedPrice)"></strong></span>
+                <span>Per Unit: <strong x-text="formatCurrency(selectedItem?.price || 0) + '/gram'"></strong></span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Product Modifiers -->
+          <div x-show="selectedItem?.has_modifiers" class="modifiers-section">
+            <h3>➕ Product Modifiers</h3>
+            <div class="modifiers-list">
+              <template x-for="modifier in itemModifiers" :key="modifier.id">
+                <div class="modifier-group">
+                  <h4 x-text="modifier.name"></h4>
+                  <div class="modifier-options">
+                    <template x-for="option in modifier.options" :key="option.id">
+                      <label class="modifier-option">
+                        <input type="checkbox" 
+                               :checked="selectedModifiers.includes(option.id)"
+                               @change="toggleModifier(option.id, option.price)">
+                        <span x-text="option.name"></span>
+                        <span class="modifier-price" x-text="formatCurrency(option.price)"></span>
+                      </label>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Combo Selection -->
+          <div x-show="selectedItem?.is_combo" class="combo-section">
+            <h3>🍔 Combo Selection</h3>
+            <div class="combo-components">
+              <template x-for="component in comboComponents" :key="component.id">
+                <div class="combo-component">
+                  <h4 x-text="component.name"></h4>
+                  <div class="combo-options">
+                    <template x-for="option in component.options" :key="option.id">
+                      <label class="combo-option">
+                        <input type="radio" 
+                               :name="'combo-' + component.id"
+                               :checked="selectedComboOptions[component.id] === option.id"
+                               @change="selectComboOption(component.id, option.id)">
+                        <span x-text="option.name"></span>
+                        <span class="combo-price" x-text="formatCurrency(option.price)"></span>
+                      </label>
+                    </template>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Quantity and Notes -->
+          <div class="item-actions">
+            <div class="quantity-control">
+              <label>Quantity</label>
+              <div class="qty-input">
+                <button @click="itemQuantity = Math.max(1, itemQuantity - 1)">−</button>
+                <input type="number" x-model.number="itemQuantity" min="1">
+                <button @click="itemQuantity++">+</button>
+              </div>
+            </div>
+            <div class="item-notes">
+              <label>Special Instructions</label>
+              <input type="text" x-model="itemNotes" placeholder="e.g., No sugar, extra cheese...">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="item-total">
+            <span>Total:</span>
+            <span class="total-amount" x-text="formatCurrency(finalItemPrice)"></span>
+          </div>
+          <div class="modal-actions">
+            <button class="btn btn-secondary" @click="showItemDetailsModal = false">Cancel</button>
+            <button class="btn btn-primary" @click="addToCartWithDetails()">Add to Cart</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Management Modal -->
+    <div id="table-modal" class="modal" :class="{ 'active': showTableManagement }">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h2>🍽️ Table Management</h2>
+          <button class="btn btn-icon" @click="showTableManagement = false">✕</button>
+        </div>
+        <div class="table-management">
+          <div class="table-toolbar">
+            <button class="btn btn-primary" @click="showTableForm()">+ Add Table</button>
+            <button class="btn btn-secondary" @click="showTableLayout = !showTableLayout">
+              <span x-text="showTableLayout ? 'List View' : 'Layout View'"></span>
+            </button>
+          </div>
+          
+          <!-- Table Layout View -->
+          <div x-show="showTableLayout" class="table-layout">
+            <div class="layout-grid">
+              <template x-for="table in tables" :key="table.id">
+                <div class="table-card" :class="table.status">
+                  <div class="table-info">
+                    <h3 x-text="table.table_number"></h3>
+                    <p x-text="table.name"></p>
+                    <span class="table-status" x-text="table.status.toUpperCase()"></span>
+                  </div>
+                  <div class="table-actions">
+                    <button class="btn btn-small btn-primary" @click="assignTableToOrder(table)">Assign</button>
+                    <button class="btn btn-small btn-secondary" @click="transferOrder(table)">Transfer</button>
+                    <button class="btn btn-small btn-danger" @click="clearTable(table)">Clear</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Table List View -->
+          <div x-show="!showTableLayout" class="table-list">
+            <table>
+              <thead>
+                <tr>
+                  <th>Table</th>
+                  <th>Name</th>
+                  <th>Status</th>
+                  <th>Order</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="table in tables" :key="table.id">
+                  <tr>
+                    <td x-text="table.table_number"></td>
+                    <td x-text="table.name"></td>
+                    <td>
+                      <span class="badge" :class="table.status === 'occupied' ? 'badge-danger' : 'badge-success'"
+                        x-text="table.status"></span>
+                    </td>
+                    <td x-text="table.order_id || '-'"></td>
+                    <td class="table-actions">
+                      <button class="btn btn-small btn-primary" @click="assignTableToOrder(table)">Assign</button>
+                      <button class="btn btn-small btn-secondary" @click="transferOrder(table)">Transfer</button>
+                      <button class="btn btn-small btn-danger" @click="clearTable(table)">Clear</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KDS Management Modal -->
+    <div id="kds-modal" class="modal" :class="{ 'active': showKDSManagement }">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h2>👨‍🍳 Kitchen Display System</h2>
+          <button class="btn btn-icon" @click="showKDSManagement = false">✕</button>
+        </div>
+        <div class="kds-management">
+          <div class="kds-toolbar">
+            <button class="btn btn-primary" @click="showStationForm()">+ Add Station</button>
+            <button class="btn btn-secondary" @click="refreshKDS()">Refresh</button>
+          </div>
+          
+          <!-- Station Management -->
+          <div class="stations-section">
+            <h3>Stations</h3>
+            <div class="stations-list">
+              <template x-for="station in stations" :key="station.id">
+                <div class="station-card">
+                  <div class="station-info">
+                    <h4 x-text="station.name"></h4>
+                    <p x-text="station.description"></p>
+                    <span class="station-status" x-text="station.is_active ? 'Active' : 'Inactive'"></span>
+                  </div>
+                  <div class="station-actions">
+                    <button class="btn btn-small btn-secondary" @click="editStation(station)">Edit</button>
+                    <button class="btn btn-small btn-danger" @click="deleteStation(station.id)">Delete</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Active Orders -->
+          <div class="kds-orders">
+            <h3>Active Orders</h3>
+            <div class="kds-grid">
+              <template x-for="ticket in kdsTickets" :key="ticket.id">
+                <div class="kds-ticket" :class="ticket.status">
+                  <div class="kds-header">
+                    <span class="kds-number" x-text="'#' + ticket.ticket_number"></span>
+                    <span class="kds-status" :class="ticket.status" x-text="ticket.status.toUpperCase()"></span>
+                  </div>
+                  <div class="kds-items">
+                    <template x-for="item in ticket.items" :key="item.id">
+                      <div class="kds-item">
+                        <span x-text="item.quantity + 'x ' + item.name"></span>
+                        <span x-show="item.notes" class="kds-item-note" x-text="' (' + item.notes + ')'"></span>
+                      </div>
+                    </template>
+                  </div>
+                  <div x-show="ticket.notes" class="kds-notes" x-text="'Note: ' + ticket.notes"></div>
+                  <div class="kds-time" x-text="formatTime(ticket.created_at)"></div>
+                  <div class="kds-actions">
+                    <button x-show="ticket.status === 'pending'" class="btn btn-small btn-primary"
+                      @click="updateKOTStatus(ticket.id, 'preparing')">Start Preparing</button>
+                    <button x-show="ticket.status === 'preparing'" class="btn btn-small btn-success"
+                      @click="updateKOTStatus(ticket.id, 'ready')">Mark Ready</button>
+                    <button x-show="ticket.status === 'ready'" class="btn btn-small btn-secondary"
+                      @click="updateKOTStatus(ticket.id, 'served')">Served</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Split Billing Modal -->
+    <div id="split-bill-modal" class="modal" :class="{ 'active': showSplitBilling }">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>💰 Split Billing</h2>
+          <button class="btn btn-icon" @click="showSplitBilling = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="split-options">
+            <div class="split-method">
+              <h3>Split Method</h3>
+              <div class="split-methods">
+                <label>
+                  <input type="radio" value="items" x-model="splitMethod">
+                  <span>By Items</span>
+                </label>
+                <label>
+                  <input type="radio" value="amount" x-model="splitMethod">
+                  <span>By Amount</span>
+                </label>
+                <label>
+                  <input type="radio" value="equal" x-model="splitMethod">
+                  <span>Equal Split</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Item-based Split -->
+            <div x-show="splitMethod === 'items'" class="split-items">
+              <h3>Select Items for Each Customer</h3>
+              <div class="split-customers">
+                <template x-for="customer in splitCustomers" :key="customer.id">
+                  <div class="split-customer">
+                    <h4>Customer <span x-text="customer.number"></span></h4>
+                    <div class="customer-items">
+                      <template x-for="item in cart" :key="item.id">
+                        <label class="item-split">
+                          <input type="checkbox" 
+                                 :checked="customer.items.includes(item.id)"
+                                 @change="toggleSplitItem(customer.id, item.id)">
+                          <span x-text="item.name + ' x' + item.quantity"></span>
+                          <span class="item-price" x-text="formatCurrency(item.total)"></span>
+                        </label>
+                      </template>
+                    </div>
+                    <div class="customer-total">
+                      Total: <span x-text="formatCurrency(getCustomerSplitTotal(customer.id))"></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Amount-based Split -->
+            <div x-show="splitMethod === 'amount'" class="split-amount">
+              <h3>Enter Amount for Each Customer</h3>
+              <div class="split-amounts">
+                <template x-for="customer in splitCustomers" :key="customer.id">
+                  <div class="amount-input">
+                    <label>Customer <span x-text="customer.number"></span></label>
+                    <input type="number" x-model.number="customer.amount" min="0" step="0.01">
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Equal Split -->
+            <div x-show="splitMethod === 'equal'" class="split-equal">
+              <h3>Number of Ways to Split</h3>
+              <input type="number" x-model.number="equalSplitCount" min="2" max="10">
+              <div class="equal-split-total">
+                Each pays: <span x-text="formatCurrency(totalAmount / equalSplitCount)"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="split-actions">
+            <button class="btn btn-secondary" @click="showSplitBilling = false">Cancel</button>
+            <button class="btn btn-primary" @click="processSplitBilling()">Process Split</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cash Drawer Management Modal -->
+    <div id="cash-drawer-modal" class="modal" :class="{ 'active': showCashDrawerManagement }">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>💰 Cash Drawer Management</h2>
+          <button class="btn btn-icon" @click="showCashDrawerManagement = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="drawer-status">
+            <h3>Current Session</h3>
+            <div class="status-grid">
+              <div class="status-item">
+                <span>Session ID</span>
+                <span x-text="cashDrawerSession?.id || 'None'"></span>
+              </div>
+              <div class="status-item">
+                <span>Start Time</span>
+                <span x-text="cashDrawerSession?.start_time || 'Not started'"></span>
+              </div>
+              <div class="status-item">
+                <span>Float Amount</span>
+                <span x-text="formatCurrency(cashDrawerSession?.float_amount || 0)"></span>
+              </div>
+              <div class="status-item">
+                <span>Current Total</span>
+                <span x-text="formatCurrency(cashDrawerSession?.current_total || 0)"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            <h3>Actions</h3>
+            <div class="action-buttons">
+              <button class="btn btn-primary" @click="startCashDrawerSession()">Start Session</button>
+              <button class="btn btn-secondary" @click="endCashDrawerSession()">End Session</button>
+              <button class="btn btn-warning" @click="reconcileCashDrawer()">Reconcile</button>
+            </div>
+          </div>
+
+          <div class="drawer-history">
+            <h3>Session History</h3>
+            <div class="history-list">
+              <template x-for="session in cashDrawerHistory" :key="session.id">
+                <div class="history-item">
+                  <div class="history-info">
+                    <h4>Session #<span x-text="session.id"></span></h4>
+                    <p x-text="formatDateTime(session.start_time) + ' - ' + formatDateTime(session.end_time)"></p>
+                  </div>
+                  <div class="history-amount">
+                    <div class="total" x-text="formatCurrency(session.total_amount)"></div>
+                    <span class="status" :class="session.status" x-text="session.status.toUpperCase()"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Void/Refund Modal -->
+    <div id="void-refund-modal" class="modal" :class="{ 'active': showVoidRefund }">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>❌ Void/Refund</h2>
+          <button class="btn btn-icon" @click="showVoidRefund = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="void-refund-form">
+            <div class="form-group">
+              <label>Order Number</label>
+              <input type="text" x-model="voidRefundOrderNumber" placeholder="Enter order number">
+            </div>
+            <div class="form-group">
+              <label>Reason</label>
+              <select x-model="voidRefundReason">
+                <option value="">Select reason...</option>
+                <option value="customer_request">Customer Request</option>
+                <option value="wrong_item">Wrong Item</option>
+                <option value="quality_issue">Quality Issue</option>
+                <option value="duplicate_order">Duplicate Order</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group" x-show="voidRefundReason === 'other'">
+              <label>Other Reason</label>
+              <input type="text" x-model="voidRefundOtherReason" placeholder="Enter reason">
+            </div>
+            <div class="form-group">
+              <label>Manager PIN</label>
+              <input type="password" x-model="managerPin" placeholder="Enter manager PIN">
+            </div>
+            <div class="form-group">
+              <label>Refund Amount</label>
+              <input type="number" x-model.number="voidRefundAmount" min="0" step="0.01" placeholder="Enter amount">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="void-refund-actions">
+            <button class="btn btn-secondary" @click="showVoidRefund = false">Cancel</button>
+            <button class="btn btn-danger" @click="processVoidRefund()">Process</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KDS Management Modal -->
+    <div id="kds-modal" class="modal" :class="{ 'active': showKDSManagement }">
+      <div class="modal-content modal-large">
+        <div class="modal-header">
+          <h2>👨‍🍳 Kitchen Display System</h2>
+          <button class="btn btn-icon" @click="showKDSManagement = false">✕</button>
+        </div>
+        <div class="kds-management">
+          <div class="kds-toolbar">
+            <button class="btn btn-primary" @click="showStationForm()">+ Add Station</button>
+            <button class="btn btn-secondary" @click="refreshKDS()">Refresh</button>
+          </div>
+          
+          <!-- Station Management -->
+          <div class="stations-section">
+            <h3>Stations</h3>
+            <div class="stations-list">
+              <template x-for="station in stations" :key="station.id">
+                <div class="station-card">
+                  <div class="station-info">
+                    <h4 x-text="station.name"></h4>
+                    <p x-text="station.description"></p>
+                    <span class="station-status" x-text="station.is_active ? 'Active' : 'Inactive'"></span>
+                  </div>
+                  <div class="station-actions">
+                    <button class="btn btn-small btn-secondary" @click="editStation(station)">Edit</button>
+                    <button class="btn btn-small btn-danger" @click="deleteStation(station.id)">Delete</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+
+          <!-- Active Orders -->
+          <div class="kds-orders">
+            <h3>Active Orders</h3>
+            <div class="kds-grid">
+              <template x-for="ticket in kdsTickets" :key="ticket.id">
+                <div class="kds-ticket" :class="ticket.status">
+                  <div class="kds-header">
+                    <span class="kds-number" x-text="'#' + ticket.ticket_number"></span>
+                    <span class="kds-status" :class="ticket.status" x-text="ticket.status.toUpperCase()"></span>
+                  </div>
+                  <div class="kds-items">
+                    <template x-for="item in ticket.items" :key="item.id">
+                      <div class="kds-item">
+                        <span x-text="item.quantity + 'x ' + item.name"></span>
+                        <span x-show="item.notes" class="kds-item-note" x-text="' (' + item.notes + ')'"></span>
+                      </div>
+                    </template>
+                  </div>
+                  <div x-show="ticket.notes" class="kds-notes" x-text="'Note: ' + ticket.notes"></div>
+                  <div class="kds-time" x-text="formatTime(ticket.created_at)"></div>
+                  <div class="kds-actions">
+                    <button x-show="ticket.status === 'pending'" class="btn btn-small btn-primary"
+                      @click="updateKOTStatus(ticket.id, 'preparing')">Start Preparing</button>
+                    <button x-show="ticket.status === 'preparing'" class="btn btn-small btn-success"
+                      @click="updateKOTStatus(ticket.id, 'ready')">Mark Ready</button>
+                    <button x-show="ticket.status === 'ready'" class="btn btn-small btn-secondary"
+                      @click="updateKOTStatus(ticket.id, 'served')">Served</button>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Split Billing Modal -->
+    <div id="split-bill-modal" class="modal" :class="{ 'active': showSplitBilling }">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>💰 Split Billing</h2>
+          <button class="btn btn-icon" @click="showSplitBilling = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="split-options">
+            <div class="split-method">
+              <h3>Split Method</h3>
+              <div class="split-methods">
+                <label>
+                  <input type="radio" value="items" x-model="splitMethod">
+                  <span>By Items</span>
+                </label>
+                <label>
+                  <input type="radio" value="amount" x-model="splitMethod">
+                  <span>By Amount</span>
+                </label>
+                <label>
+                  <input type="radio" value="equal" x-model="splitMethod">
+                  <span>Equal Split</span>
+                </label>
+              </div>
+            </div>
+
+            <!-- Item-based Split -->
+            <div x-show="splitMethod === 'items'" class="split-items">
+              <h3>Select Items for Each Customer</h3>
+              <div class="split-customers">
+                <template x-for="customer in splitCustomers" :key="customer.id">
+                  <div class="split-customer">
+                    <h4>Customer <span x-text="customer.number"></span></h4>
+                    <div class="customer-items">
+                      <template x-for="item in cart" :key="item.id">
+                        <label class="item-split">
+                          <input type="checkbox" 
+                                 :checked="customer.items.includes(item.id)"
+                                 @change="toggleSplitItem(customer.id, item.id)">
+                          <span x-text="item.name + ' x' + item.quantity"></span>
+                          <span class="item-price" x-text="formatCurrency(item.total)"></span>
+                        </label>
+                      </template>
+                    </div>
+                    <div class="customer-total">
+                      Total: <span x-text="formatCurrency(getCustomerSplitTotal(customer.id))"></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Amount-based Split -->
+            <div x-show="splitMethod === 'amount'" class="split-amount">
+              <h3>Enter Amount for Each Customer</h3>
+              <div class="split-amounts">
+                <template x-for="customer in splitCustomers" :key="customer.id">
+                  <div class="amount-input">
+                    <label>Customer <span x-text="customer.number"></span></label>
+                    <input type="number" x-model.number="customer.amount" min="0" step="0.01">
+                  </div>
+                </template>
+              </div>
+            </div>
+
+            <!-- Equal Split -->
+            <div x-show="splitMethod === 'equal'" class="split-equal">
+              <h3>Number of Ways to Split</h3>
+              <input type="number" x-model.number="equalSplitCount" min="2" max="10">
+              <div class="equal-split-total">
+                Each pays: <span x-text="formatCurrency(totalAmount / equalSplitCount)"></span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="split-actions">
+            <button class="btn btn-secondary" @click="showSplitBilling = false">Cancel</button>
+            <button class="btn btn-primary" @click="processSplitBilling()">Process Split</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Cash Drawer Management Modal -->
+    <div id="cash-drawer-modal" class="modal" :class="{ 'active': showCashDrawerManagement }">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>💰 Cash Drawer Management</h2>
+          <button class="btn btn-icon" @click="showCashDrawerManagement = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="drawer-status">
+            <h3>Current Session</h3>
+            <div class="status-grid">
+              <div class="status-item">
+                <span>Session ID</span>
+                <span x-text="cashDrawerSession?.id || 'None'"></span>
+              </div>
+              <div class="status-item">
+                <span>Start Time</span>
+                <span x-text="cashDrawerSession?.start_time || 'Not started'"></span>
+              </div>
+              <div class="status-item">
+                <span>Float Amount</span>
+                <span x-text="formatCurrency(cashDrawerSession?.float_amount || 0)"></span>
+              </div>
+              <div class="status-item">
+                <span>Current Total</span>
+                <span x-text="formatCurrency(cashDrawerSession?.current_total || 0)"></span>
+              </div>
+            </div>
+          </div>
+
+          <div class="drawer-actions">
+            <h3>Actions</h3>
+            <div class="action-buttons">
+              <button class="btn btn-primary" @click="startCashDrawerSession()">Start Session</button>
+              <button class="btn btn-secondary" @click="endCashDrawerSession()">End Session</button>
+              <button class="btn btn-warning" @click="reconcileCashDrawer()">Reconcile</button>
+            </div>
+          </div>
+
+          <div class="drawer-history">
+            <h3>Session History</h3>
+            <div class="history-list">
+              <template x-for="session in cashDrawerHistory" :key="session.id">
+                <div class="history-item">
+                  <div class="history-info">
+                    <h4>Session #<span x-text="session.id"></span></h4>
+                    <p x-text="formatDateTime(session.start_time) + ' - ' + formatDateTime(session.end_time)"></p>
+                  </div>
+                  <div class="history-amount">
+                    <div class="total" x-text="formatCurrency(session.total_amount)"></div>
+                    <span class="status" :class="session.status" x-text="session.status.toUpperCase()"></span>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Void/Refund Modal -->
+    <div id="void-refund-modal" class="modal" :class="{ 'active': showVoidRefund }">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>❌ Void/Refund</h2>
+          <button class="btn btn-icon" @click="showVoidRefund = false">✕</button>
+        </div>
+        <div class="modal-body">
+          <div class="void-refund-form">
+            <div class="form-group">
+              <label>Order Number</label>
+              <input type="text" x-model="voidRefundOrderNumber" placeholder="Enter order number">
+            </div>
+            <div class="form-group">
+              <label>Reason</label>
+              <select x-model="voidRefundReason">
+                <option value="">Select reason...</option>
+                <option value="customer_request">Customer Request</option>
+                <option value="wrong_item">Wrong Item</option>
+                <option value="quality_issue">Quality Issue</option>
+                <option value="duplicate_order">Duplicate Order</option>
+                <option value="other">Other</option>
+              </select>
+            </div>
+            <div class="form-group" x-show="voidRefundReason === 'other'">
+              <label>Other Reason</label>
+              <input type="text" x-model="voidRefundOtherReason" placeholder="Enter reason">
+            </div>
+            <div class="form-group">
+              <label>Manager PIN</label>
+              <input type="password" x-model="managerPin" placeholder="Enter manager PIN">
+            </div>
+            <div class="form-group">
+              <label>Refund Amount</label>
+              <input type="number" x-model.number="voidRefundAmount" min="0" step="0.01" placeholder="Enter amount">
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <div class="void-refund-actions">
+            <button class="btn btn-secondary" @click="showVoidRefund = false">Cancel</button>
+            <button class="btn btn-danger" @click="processVoidRefund()">Process</button>
           </div>
         </div>
       </div>

@@ -115,10 +115,12 @@ class ErrorHandler extends EventEmitter {
         const timestamp = new Date();
         const errorMessage = error instanceof Error ? error.message : String(error);
         const stack = error instanceof Error ? error.stack : null;
+        const name = error instanceof Error ? error.name : 'Error';
 
         return {
             id: this.generateErrorId(),
             timestamp,
+            name,
             message: errorMessage,
             stack,
             category: this.categorizeError(error, context),
@@ -135,8 +137,48 @@ class ErrorHandler extends EventEmitter {
             },
             recoverable: this.isRecoverable(error, context),
             recoveryActions: this.getRecoveryActions(error, context),
-            userFriendlyMessage: this.createUserFriendlyMessage(error, context)
+            userFriendlyMessage: this.createUserFriendlyMessage(error, context),
+            code: this.extractErrorCode(error, context)
         };
+    }
+
+    /**
+     * Extract error code from error object or context
+     * @param {Error|string} error - The error
+     * @param {Object} context - Error context
+     * @returns {string} Error code
+     */
+    extractErrorCode(error, context) {
+        if (context.code) {
+            return context.code;
+        }
+
+        const message = error instanceof Error ? error.message : String(error);
+
+        // Extract error codes from common patterns
+        const codeMatch = message.match(/\[([A-Z0-9_-]+)\]/);
+        if (codeMatch) {
+            return codeMatch[1];
+        }
+
+        // Extract error codes from SQL errors
+        if (message.includes('SQLITE_ERROR') || message.includes('SQL')) {
+            return 'DB_ERROR';
+        }
+
+        if (message.includes('ECONNREFUSED') || message.includes('connection')) {
+            return 'CONNECTION_ERROR';
+        }
+
+        if (message.includes('ETIMEDOUT') || message.includes('timeout')) {
+            return 'TIMEOUT_ERROR';
+        }
+
+        if (message.includes('ENOENT') || message.includes('file')) {
+            return 'FILE_NOT_FOUND';
+        }
+
+        return 'GENERIC_ERROR';
     }
 
     /**
@@ -762,6 +804,140 @@ class ErrorHandler extends EventEmitter {
     cleanup() {
         this.progressOperations.clear();
         this.removeAllListeners();
+    }
+
+    /**
+     * Create structured error response for API endpoints
+     * @param {Error|string} error - The error
+     * @param {Object} context - Additional context
+     * @param {number} statusCode - HTTP status code
+     * @returns {Object} Structured error response
+     */
+    createApiErrorResponse(error, context = {}, statusCode = 500) {
+        const errorInfo = this.createErrorInfo(error, context);
+
+        return {
+            error: {
+                id: errorInfo.id,
+                code: errorInfo.code,
+                message: errorInfo.userFriendlyMessage || errorInfo.message,
+                details: errorInfo.context.details || errorInfo.context.errorDetails,
+                timestamp: errorInfo.timestamp.toISOString(),
+                severity: errorInfo.severity,
+                category: errorInfo.category,
+                recoverable: errorInfo.recoverable,
+                recoveryActions: errorInfo.recoveryActions
+            },
+            statusCode
+        };
+    }
+
+    /**
+     * Create validation error response
+     * @param {Array<string>} errors - Array of validation error messages
+     * @returns {Object} Validation error response
+     */
+    createValidationErrorResponse(errors) {
+        return {
+            error: {
+                id: this.generateErrorId(),
+                code: 'VALIDATION_ERROR',
+                message: 'Validation failed',
+                details: errors,
+                timestamp: new Date().toISOString(),
+                severity: ErrorSeverity.MEDIUM,
+                category: ErrorCategory.UNKNOWN,
+                recoverable: true,
+                recoveryActions: [RecoveryAction.MANUAL]
+            },
+            statusCode: 400
+        };
+    }
+
+    /**
+     * Create not found error response
+     * @param {string} resource - Resource that was not found
+     * @param {string} resourceId - ID of the resource
+     * @returns {Object} Not found error response
+     */
+    createNotFoundErrorResponse(resource, resourceId) {
+        return {
+            error: {
+                id: this.generateErrorId(),
+                code: 'NOT_FOUND',
+                message: `${resource} not found`,
+                details: resourceId ? `ID: ${resourceId}` : undefined,
+                timestamp: new Date().toISOString(),
+                severity: ErrorSeverity.LOW,
+                category: ErrorCategory.UNKNOWN,
+                recoverable: true,
+                recoveryActions: [RecoveryAction.MANUAL]
+            },
+            statusCode: 404
+        };
+    }
+
+    /**
+     * Create unauthorized error response
+     * @param {string} message - Custom message
+     * @returns {Object} Unauthorized error response
+     */
+    createUnauthorizedErrorResponse(message = 'Unauthorized') {
+        return {
+            error: {
+                id: this.generateErrorId(),
+                code: 'UNAUTHORIZED',
+                message,
+                timestamp: new Date().toISOString(),
+                severity: ErrorSeverity.MEDIUM,
+                category: ErrorCategory.UNKNOWN,
+                recoverable: false,
+                recoveryActions: [RecoveryAction.MANUAL]
+            },
+            statusCode: 401
+        };
+    }
+
+    /**
+     * Create forbidden error response
+     * @param {string} message - Custom message
+     * @returns {Object} Forbidden error response
+     */
+    createForbiddenErrorResponse(message = 'Forbidden') {
+        return {
+            error: {
+                id: this.generateErrorId(),
+                code: 'FORBIDDEN',
+                message,
+                timestamp: new Date().toISOString(),
+                severity: ErrorSeverity.MEDIUM,
+                category: ErrorCategory.UNKNOWN,
+                recoverable: false,
+                recoveryActions: [RecoveryAction.MANUAL]
+            },
+            statusCode: 403
+        };
+    }
+
+    /**
+     * Create conflict error response
+     * @param {string} message - Custom message
+     * @returns {Object} Conflict error response
+     */
+    createConflictErrorResponse(message = 'Conflict') {
+        return {
+            error: {
+                id: this.generateErrorId(),
+                code: 'CONFLICT',
+                message,
+                timestamp: new Date().toISOString(),
+                severity: ErrorSeverity.MEDIUM,
+                category: ErrorCategory.UNKNOWN,
+                recoverable: true,
+                recoveryActions: [RecoveryAction.MANUAL]
+            },
+            statusCode: 409
+        };
     }
 }
 

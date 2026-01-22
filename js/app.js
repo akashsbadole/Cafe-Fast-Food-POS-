@@ -10,6 +10,9 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('lock-screen');
       }
     });
+    
+    // Initialize all feature managers
+    initializeFeatureManagers();
   }
   
   // Initialize authentication
@@ -33,6 +36,60 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize payments
   Payments.setupEventListeners();
   
+  // Initialize modifier manager
+  ModifierManager.init();
+  
+  // Initialize combo manager
+  ComboManager.init();
+  
+  // Initialize weight manager
+  WeightManager.init();
+  
+  // Initialize split bill manager
+  SplitBillManager.init();
+  
+  // Initialize void/refund manager
+  VoidRefundManager.init();
+  
+  // Initialize KDS manager
+  KDSManager.init();
+  
+  // Initialize hardware manager
+  HardwareManager.init();
+  
+  // Initialize digital receipt manager
+  DigitalReceiptManager.init();
+  
+  // Initialize loyalty manager
+  LoyaltyManager.init();
+  
+  // Initialize online order manager
+  OnlineOrderManager.init();
+  
+  // Initialize recipe manager
+  RecipeManager.init();
+  
+  // Initialize cash drawer manager
+  CashDrawerManager.init();
+  
+  // Initialize buzzer manager
+  BuzzerManager.init();
+  
+  // Initialize table manager
+  TableManager.init();
+  
+  // Initialize offline manager
+  OfflineManager.init();
+  
+  // Initialize sync manager
+  SyncManager.init();
+  
+  // Initialize reporting manager
+  ReportingManager.init();
+  
+  // Initialize tax engine
+  TaxEngine.init();
+  
   // Calculate initial billing
   Billing.calculate();
 });
@@ -47,6 +104,38 @@ function initApp() {
   
   // Refresh history
   History.refresh();
+}
+
+// Initialize all feature managers
+async function initializeFeatureManagers() {
+  try {
+    // Initialize feature managers via Electron API
+    if (window.electronAPI) {
+      await window.electronAPI.initModifierManager();
+      await window.electronAPI.initComboManager();
+      await window.electronAPI.initWeightManager();
+      await window.electronAPI.initSplitBillManager();
+      await window.electronAPI.initVoidRefundManager();
+      await window.electronAPI.initKDSManager();
+      await window.electronAPI.initHardwareManager();
+      await window.electronAPI.initDigitalReceiptManager();
+      await window.electronAPI.initLoyaltyManager();
+      await window.electronAPI.initOnlineOrderManager();
+      await window.electronAPI.initRecipeManager();
+      await window.electronAPI.initCashDrawerManager();
+      await window.electronAPI.initCashReconciliationManager();
+      await window.electronAPI.initBuzzerManager();
+      await window.electronAPI.initTableManager();
+      await window.electronAPI.initOfflineManager();
+      await window.electronAPI.initSyncManager();
+      await window.electronAPI.initReportingManager();
+      await window.electronAPI.initTaxEngine();
+    }
+    
+    console.log('All feature managers initialized successfully');
+  } catch (error) {
+    console.error('Error initializing feature managers:', error);
+  }
 }
 
 // Helper function to show screen

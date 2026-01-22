@@ -48,6 +48,49 @@ function posApp() {
     totalAmount: 0,
     orderNotes: '',
 
+    // Item Details Modal state
+    showItemDetailsModal: false,
+    selectedItem: null,
+    itemWeight: 0,
+    itemModifiers: [],
+    selectedModifiers: [],
+    comboComponents: [],
+    selectedComboOptions: {},
+    itemQuantity: 1,
+    itemNotes: '',
+    itemPrice: 0,
+
+    // Computed: Weighted item price
+    get weightedPrice() {
+      if (!this.selectedItem || !this.selectedItem.is_weighted) return 0;
+      return (this.itemWeight * (this.selectedItem.price || 0)).toFixed(2);
+    },
+
+    // Computed: Final item price with modifiers and combos
+    get finalItemPrice() {
+      let basePrice = this.selectedItem?.is_weighted ? this.weightedPrice : (this.selectedItem?.price || 0);
+      let modifiersTotal = this.selectedModifiers.reduce((sum, modId) => {
+        const modifier = this.itemModifiers.find(m => m.options.some(o => o.id === modId));
+        if (modifier) {
+          const option = modifier.options.find(o => o.id === modId);
+          return sum + (option?.price || 0);
+        }
+        return sum;
+      }, 0);
+
+      let comboTotal = 0;
+      if (this.selectedItem?.is_combo) {
+        Object.values(this.selectedComboOptions).forEach(optionId => {
+          const option = this.comboComponents.flatMap(c => c.options).find(o => o.id === optionId);
+          if (option) {
+            comboTotal += option.price;
+          }
+        });
+      }
+
+      return (basePrice + modifiersTotal + comboTotal) * this.itemQuantity;
+    },
+
     // Payment state
     paymentMode: 'cash',
 
@@ -120,6 +163,37 @@ function posApp() {
       reason: ''
     },
 
+    // Table Management
+    showTableManagement: false,
+    showTableLayout: true,
+    tables: [],
+    tableForm: { table_number: '', name: '', status: 'available' },
+
+    // KDS Management
+    showKDSManagement: false,
+    stations: [],
+    kdsTickets: [],
+    stationForm: { name: '', description: '', is_active: true },
+
+    // Split Billing
+    showSplitBilling: false,
+    splitMethod: 'items',
+    splitCustomers: [{ id: 1, number: 1, items: [], amount: 0 }],
+    equalSplitCount: 2,
+
+    // Cash Drawer Management
+    showCashDrawerManagement: false,
+    cashDrawerSession: null,
+    cashDrawerHistory: [],
+
+    // Void/Refund
+    showVoidRefund: false,
+    voidRefundOrderNumber: '',
+    voidRefundReason: '',
+    voidRefundOtherReason: '',
+    managerPin: '',
+    voidRefundAmount: 0,
+
     // Reporting
     reportType: 'daily',
     reportStartDate: '',
@@ -184,9 +258,25 @@ function posApp() {
       
       // Check if user is authenticated before loading protected data
       const authToken = localStorage.getItem('authToken');
-      if (authToken) {
-        this.loadSettings(); // Load settings first
-        this.loadOrders();
+      const user = localStorage.getItem('user');
+      
+      if (authToken && user) {
+        this.authToken = authToken;
+        this.currentUser = JSON.parse(user);
+        this.isLoggedIn = true;
+        
+        // Load protected data with error handling
+        this.loadSettings().catch(err => console.warn('Settings load failed:', err));
+        this.loadOrders().catch(err => console.warn('Orders load failed:', err));
+        this.loadKOTTickets().catch(err => console.warn('KOT tickets load failed:', err));
+        this.loadUsers().catch(err => console.warn('Users load failed:', err));
+        this.loadRoles().catch(err => console.warn('Roles load failed:', err));
+        this.loadCustomers().catch(err => console.warn('Customers load failed:', err));
+        this.loadLowStockItems().catch(err => console.warn('Low stock items load failed:', err));
+        this.loadTables().catch(err => console.warn('Tables load failed:', err));
+        this.loadStations().catch(err => console.warn('Stations load failed:', err));
+        this.loadCashDrawerSession().catch(err => console.warn('Cash drawer session load failed:', err));
+        this.loadCashDrawerHistory().catch(err => console.warn('Cash drawer history load failed:', err));
       }
       
       this.loadMenuData();
@@ -1600,6 +1690,117 @@ function posApp() {
       }
     },
 
+    // Item Details Modal Methods
+    async showItemDetails(item) {
+      this.selectedItem = item;
+      this.itemWeight = 0;
+      this.itemModifiers = [];
+      this.selectedModifiers = [];
+      this.comboComponents = [];
+      this.selectedComboOptions = {};
+      this.itemQuantity = 1;
+      this.itemNotes = '';
+      this.itemPrice = item.price;
+
+      // Load modifiers if item has modifiers
+      if (item.has_modifiers) {
+        await this.loadItemModifiers(item.id);
+      }
+
+      // Load combo components if item is a combo
+      if (item.is_combo) {
+        await this.loadComboComponents(item.id);
+      }
+
+      this.showItemDetailsModal = true;
+    },
+
+    async loadItemModifiers(itemId) {
+      try {
+        const response = await fetch(`${API_BASE}/api/modifiers/item/${itemId}`, {
+          headers: this.getAuthHeaders()
+        });
+        if (response.ok) {
+          this.itemModifiers = await response.json();
+        }
+      } catch (error) {
+        console.error('Error loading item modifiers:', error);
+        this.itemModifiers = [];
+      }
+    },
+
+    async loadComboComponents(itemId) {
+      try {
+        const response = await fetch(`${API_BASE}/api/combo-components/item/${itemId}`, {
+          headers: this.getAuthHeaders()
+        });
+        if (response.ok) {
+          this.comboComponents = await response.json();
+          // Initialize selected options with first option of each component
+          this.comboComponents.forEach(component => {
+            if (component.options && component.options.length > 0) {
+              this.selectedComboOptions[component.id] = component.options[0].id;
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error loading combo components:', error);
+        this.comboComponents = [];
+      }
+    },
+
+    toggleModifier(modifierId, price) {
+      const index = this.selectedModifiers.indexOf(modifierId);
+      if (index > -1) {
+        this.selectedModifiers.splice(index, 1);
+      } else {
+        this.selectedModifiers.push(modifierId);
+      }
+    },
+
+    selectComboOption(componentId, optionId) {
+      this.selectedComboOptions[componentId] = optionId;
+    },
+
+    async addToCartWithDetails() {
+      const itemData = {
+        id: this.selectedItem.id,
+        name: this.selectedItem.name,
+        price: this.finalItemPrice / this.itemQuantity, // Base price per unit
+        quantity: this.itemQuantity,
+        total: this.finalItemPrice,
+        notes: this.itemNotes,
+        modifiers: this.selectedModifiers.map(modId => {
+          const modifier = this.itemModifiers.find(m => m.options.some(o => o.id === modId));
+          const option = modifier.options.find(o => o.id === modId);
+          return { id: modId, name: option.name, price: option.price };
+        }),
+        comboOptions: this.selectedComboOptions
+      };
+
+      // Check stock for weighted items
+      if (this.selectedItem.is_weighted && this.selectedItem.stock_quantity !== null) {
+        const requiredStock = this.itemWeight;
+        if (requiredStock > this.selectedItem.stock_quantity) {
+          this.showToast('Insufficient stock for this weight', 'error');
+          return;
+        }
+      }
+
+      // Check stock for regular items
+      if (!this.selectedItem.is_weighted && this.selectedItem.stock_quantity !== null) {
+        if (this.itemQuantity > this.selectedItem.stock_quantity) {
+          this.showToast('Insufficient stock', 'error');
+          return;
+        }
+      }
+
+      this.cart.push(itemData);
+      this.calculateTotals();
+      this.showItemDetailsModal = false;
+      this.showToast(`${this.itemQuantity}x ${this.selectedItem.name} added to cart`, 'success');
+    },
+
     // =================== MVP METHODS ===================
 
     // User Management Methods
@@ -1950,6 +2151,519 @@ function posApp() {
       } finally {
         event.target.value = '';
       }
+    },
+
+    // Table Management Methods
+    async loadTables() {
+      try {
+        const response = await fetch(`${API_BASE}/api/tables`, {
+          headers: this.getAuthHeaders()
+        });
+        if (response.ok) {
+          this.tables = await response.json();
+        }
+      } catch (error) {
+        console.error('Error loading tables:', error);
+        this.showToast('Failed to load tables', 'error');
+      }
+    },
+
+    showTableForm(table = null) {
+      this.editingTable = table;
+      if (table) {
+        this.tableForm = { table_number: table.table_number, name: table.name, status: table.status };
+      } else {
+        this.tableForm = { table_number: '', name: '', status: 'available' };
+      }
+      this.showTableFormModal = true;
+    },
+
+    async saveTable() {
+      try {
+        const method = this.editingTable ? 'PUT' : 'POST';
+        const url = this.editingTable
+          ? `${API_BASE}/api/tables/${this.editingTable.id}`
+          : `${API_BASE}/api/tables`;
+
+        const response = await fetch(url, {
+          method,
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(this.tableForm)
+        });
+
+        if (response.ok) {
+          await this.loadTables();
+          this.showTableFormModal = false;
+          this.editingTable = null;
+          this.showToast('Table saved successfully', 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error saving table:', error);
+        this.showToast('Failed to save table', 'error');
+      }
+    },
+
+    async deleteTable(id) {
+      if (!confirm('Are you sure you want to delete this table?')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/tables/${id}`, {
+          method: 'DELETE',
+          headers: this.getAuthHeaders()
+        });
+
+        if (response.ok) {
+          await this.loadTables();
+          this.showToast('Table deleted successfully', 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting table:', error);
+        this.showToast('Failed to delete table', 'error');
+      }
+    },
+
+    async assignTableToOrder(table) {
+      if (this.cart.length === 0) {
+        this.showToast('Add items to cart first', 'warn');
+        return;
+      }
+
+      try {
+        // Create order with table assignment
+        const orderData = {
+          orderNumber: await this.generateOrderNumber(),
+          subtotal: this.subtotal,
+          discountAmount: this.discountAmount,
+          discountType: this.discountType,
+          taxAmount: this.taxAmount,
+          totalAmount: this.totalAmount,
+          paymentMode: this.paymentMode,
+          paymentStatus: 'unpaid',
+          status: 'pending',
+          notes: this.orderNotes,
+          tableId: table.id,
+          customerId: this.selectedCustomer?.id
+        };
+
+        const response = await fetch(`${API_BASE}/api/orders`, {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(orderData)
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          // Add items
+          for (const item of this.cart) {
+            await fetch(`${API_BASE}/api/orders/${result.id}/items`, {
+              method: 'POST',
+              headers: this.getAuthHeaders(),
+              body: JSON.stringify({
+                menuItemId: item.id,
+                quantity: item.quantity,
+                unitPrice: item.price,
+                totalPrice: item.price * item.quantity,
+                notes: item.notes
+              })
+            });
+          }
+
+          // Update table status
+          await fetch(`${API_BASE}/api/tables/${table.id}`, {
+            method: 'PUT',
+            headers: this.getAuthHeaders(),
+            body: JSON.stringify({ status: 'occupied' })
+          });
+
+          this.showToast(`Order assigned to Table ${table.table_number}`, 'success');
+          this.clearCart();
+          await this.loadTables();
+        } else {
+          this.showToast('Failed to assign table: ' + (result.error || 'Unknown error'), 'error');
+        }
+      } catch (error) {
+        console.error('Table assignment error:', error);
+        this.showToast('Failed to assign table', 'error');
+      }
+    },
+
+    async transferOrder(table) {
+      // Implementation for transferring existing orders between tables
+      this.showToast('Transfer functionality coming soon', 'info');
+    },
+
+    async clearTable(table) {
+      if (!confirm(`Clear table ${table.table_number}? This will remove any pending orders.`)) return;
+
+      try {
+        // Clear any pending orders for this table
+        await fetch(`${API_BASE}/api/tables/${table.id}/clear`, {
+          method: 'POST',
+          headers: this.getAuthHeaders()
+        });
+
+        // Update table status
+        await fetch(`${API_BASE}/api/tables/${table.id}`, {
+          method: 'PUT',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({ status: 'available' })
+        });
+
+        this.showToast(`Table ${table.table_number} cleared`, 'success');
+        await this.loadTables();
+      } catch (error) {
+        console.error('Clear table error:', error);
+        this.showToast('Failed to clear table', 'error');
+      }
+    },
+
+    // KDS Management Methods
+    async loadStations() {
+      try {
+        const response = await fetch(`${API_BASE}/api/kds/stations`, {
+          headers: this.getAuthHeaders()
+        });
+        if (response.ok) {
+          this.stations = await response.json();
+        }
+      } catch (error) {
+        console.error('Error loading stations:', error);
+        this.showToast('Failed to load KDS stations', 'error');
+      }
+    },
+
+    showStationForm(station = null) {
+      this.editingStation = station;
+      if (station) {
+        this.stationForm = { name: station.name, description: station.description, is_active: station.is_active };
+      } else {
+        this.stationForm = { name: '', description: '', is_active: true };
+      }
+      this.showStationFormModal = true;
+    },
+
+    async saveStation() {
+      try {
+        const method = this.editingStation ? 'PUT' : 'POST';
+        const url = this.editingStation
+          ? `${API_BASE}/api/kds/stations/${this.editingStation.id}`
+          : `${API_BASE}/api/kds/stations`;
+
+        const response = await fetch(url, {
+          method,
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify(this.stationForm)
+        });
+
+        if (response.ok) {
+          await this.loadStations();
+          this.showStationFormModal = false;
+          this.editingStation = null;
+          this.showToast('Station saved successfully', 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error saving station:', error);
+        this.showToast('Failed to save station', 'error');
+      }
+    },
+
+    async deleteStation(id) {
+      if (!confirm('Are you sure you want to delete this station?')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/kds/stations/${id}`, {
+          method: 'DELETE',
+          headers: this.getAuthHeaders()
+        });
+
+        if (response.ok) {
+          await this.loadStations();
+          this.showToast('Station deleted successfully', 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting station:', error);
+        this.showToast('Failed to delete station', 'error');
+      }
+    },
+
+    async refreshKDS() {
+      await this.loadKOTTickets();
+      await this.loadStations();
+    },
+
+    // Split Billing Methods
+    addSplitCustomer() {
+      const newCustomer = {
+        id: Date.now(),
+        number: this.splitCustomers.length + 1,
+        items: [],
+        amount: 0
+      };
+      this.splitCustomers.push(newCustomer);
+    },
+
+    removeSplitCustomer(customerId) {
+      if (this.splitCustomers.length > 1) {
+        this.splitCustomers = this.splitCustomers.filter(c => c.id !== customerId);
+      }
+    },
+
+    toggleSplitItem(customerId, itemId) {
+      const customer = this.splitCustomers.find(c => c.id === customerId);
+      if (customer) {
+        const index = customer.items.indexOf(itemId);
+        if (index > -1) {
+          customer.items.splice(index, 1);
+        } else {
+          customer.items.push(itemId);
+        }
+      }
+    },
+
+    getCustomerSplitTotal(customerId) {
+      const customer = this.splitCustomers.find(c => c.id === customerId);
+      if (!customer) return 0;
+
+      if (this.splitMethod === 'items') {
+        return this.cart
+          .filter(item => customer.items.includes(item.id))
+          .reduce((sum, item) => sum + item.total, 0);
+      } else if (this.splitMethod === 'amount') {
+        return customer.amount;
+      }
+      return 0;
+    },
+
+    async processSplitBilling() {
+      if (this.cart.length === 0) {
+        this.showToast('Cart is empty', 'warn');
+        return;
+      }
+
+      try {
+        let splitData = {};
+
+        if (this.splitMethod === 'items') {
+          // Validate all items are assigned
+          const allItemsAssigned = this.cart.every(item =>
+            this.splitCustomers.some(customer => customer.items.includes(item.id))
+          );
+
+          if (!allItemsAssigned) {
+            this.showToast('Please assign all items to customers', 'warn');
+            return;
+          }
+
+          splitData = {
+            method: 'items',
+            customers: this.splitCustomers.map(c => ({
+              number: c.number,
+              items: c.items,
+              total: this.getCustomerSplitTotal(c.id)
+            }))
+          };
+        } else if (this.splitMethod === 'amount') {
+          const totalAmount = this.splitCustomers.reduce((sum, c) => sum + c.amount, 0);
+          if (Math.abs(totalAmount - this.totalAmount) > 0.01) {
+            this.showToast('Amounts must sum to total bill', 'warn');
+            return;
+          }
+
+          splitData = {
+            method: 'amount',
+            customers: this.splitCustomers.map(c => ({
+              number: c.number,
+              amount: c.amount
+            }))
+          };
+        } else if (this.splitMethod === 'equal') {
+          const amountPerCustomer = this.totalAmount / this.equalSplitCount;
+          splitData = {
+            method: 'equal',
+            count: this.equalSplitCount,
+            amountPerCustomer: amountPerCustomer
+          };
+        }
+
+        // Process split billing
+        const response = await fetch(`${API_BASE}/api/split-billing`, {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            orderId: this.currentOrder?.id,
+            splitData: splitData,
+            cart: this.cart,
+            subtotal: this.subtotal,
+            discountAmount: this.discountAmount,
+            taxAmount: this.taxAmount,
+            totalAmount: this.totalAmount
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          this.showToast('Split billing processed successfully', 'success');
+          this.showSplitBilling = false;
+          this.clearCart();
+        } else {
+          this.showToast('Error: ' + result.error, 'error');
+        }
+      } catch (error) {
+        console.error('Split billing error:', error);
+        this.showToast('Failed to process split billing', 'error');
+      }
+    },
+
+    // Cash Drawer Management Methods
+    async loadCashDrawerSession() {
+      try {
+        const response = await fetch(`${API_BASE}/api/cash-drawer/session`, {
+          headers: this.getAuthHeaders()
+        });
+        if (response.ok) {
+          this.cashDrawerSession = await response.json();
+        }
+      } catch (error) {
+        console.error('Error loading cash drawer session:', error);
+      }
+    },
+
+    async loadCashDrawerHistory() {
+      try {
+        const response = await fetch(`${API_BASE}/api/cash-drawer/history`, {
+          headers: this.getAuthHeaders()
+        });
+        if (response.ok) {
+          this.cashDrawerHistory = await response.json();
+        }
+      } catch (error) {
+        console.error('Error loading cash drawer history:', error);
+      }
+    },
+
+    async startCashDrawerSession() {
+      try {
+        const response = await fetch(`${API_BASE}/api/cash-drawer/start`, {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({ floatAmount: 1000 })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          await this.loadCashDrawerSession();
+          this.showToast('Cash drawer session started', 'success');
+        } else {
+          this.showToast('Error: ' + result.error, 'error');
+        }
+      } catch (error) {
+        console.error('Start cash drawer error:', error);
+        this.showToast('Failed to start cash drawer session', 'error');
+      }
+    },
+
+    async endCashDrawerSession() {
+      try {
+        const response = await fetch(`${API_BASE}/api/cash-drawer/end`, {
+          method: 'POST',
+          headers: this.getAuthHeaders()
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          await this.loadCashDrawerSession();
+          await this.loadCashDrawerHistory();
+          this.showToast('Cash drawer session ended', 'success');
+        } else {
+          this.showToast('Error: ' + result.error, 'error');
+        }
+      } catch (error) {
+        console.error('End cash drawer error:', error);
+        this.showToast('Failed to end cash drawer session', 'error');
+      }
+    },
+
+    async reconcileCashDrawer() {
+      try {
+        const response = await fetch(`${API_BASE}/api/cash-drawer/reconcile`, {
+          method: 'POST',
+          headers: this.getAuthHeaders()
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          this.showToast('Cash drawer reconciled successfully', 'success');
+        } else {
+          this.showToast('Reconciliation needed: ' + result.message, 'warn');
+        }
+      } catch (error) {
+        console.error('Reconcile cash drawer error:', error);
+        this.showToast('Failed to reconcile cash drawer', 'error');
+      }
+    },
+
+    // Void/Refund Methods
+    async processVoidRefund() {
+      if (!this.voidRefundOrderNumber || !this.voidRefundReason || !this.managerPin) {
+        this.showToast('Please fill all required fields', 'warn');
+        return;
+      }
+
+      if (this.voidRefundReason === 'other' && !this.voidRefundOtherReason) {
+        this.showToast('Please specify other reason', 'warn');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/void-refund`, {
+          method: 'POST',
+          headers: this.getAuthHeaders(),
+          body: JSON.stringify({
+            orderNumber: this.voidRefundOrderNumber,
+            reason: this.voidRefundReason === 'other' ? this.voidRefundOtherReason : this.voidRefundReason,
+            managerPin: this.managerPin,
+            amount: this.voidRefundAmount || this.totalAmount
+          })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          this.showToast('Void/Refund processed successfully', 'success');
+          this.showVoidRefund = false;
+          this.clearFormFields();
+        } else {
+          this.showToast('Error: ' + result.error, 'error');
+        }
+      } catch (error) {
+        console.error('Void/Refund error:', error);
+        this.showToast('Failed to process void/refund', 'error');
+      }
+    },
+
+    clearFormFields() {
+      this.voidRefundOrderNumber = '';
+      this.voidRefundReason = '';
+      this.voidRefundOtherReason = '';
+      this.managerPin = '';
+      this.voidRefundAmount = 0;
     },
 
     // Utility Methods

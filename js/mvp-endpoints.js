@@ -198,7 +198,10 @@ function addCustomerManagementEndpoints(app, db, checkPermission) {
     // GET all customers
     app.get('/api/customers', checkPermission('view_customers'), async (req, res) => {
         try {
-            const customers = await db.customer.getAll();
+            console.log('DEBUG: db object keys:', Object.keys(db));
+            console.log('DEBUG: db.customer:', db.customer);
+            console.log('DEBUG: db.customerOps:', db.customerOps);
+            const customers = await db.customerOps.getAll();
             res.json(customers);
         } catch (error) {
             console.error('Error fetching customers:', error);
@@ -209,7 +212,7 @@ function addCustomerManagementEndpoints(app, db, checkPermission) {
     // GET customer by ID
     app.get('/api/customers/:id', async (req, res) => {
         try {
-            const customer = await db.customer.getById(req.params.id);
+            const customer = await db.customerOps.getById(req.params.id);
             if (!customer) {
                 return res.status(404).json({ error: 'Customer not found' });
             }
@@ -223,7 +226,7 @@ function addCustomerManagementEndpoints(app, db, checkPermission) {
     // GET customer order history
     app.get('/api/customers/:id/orders', async (req, res) => {
         try {
-            const orders = await db.customer.getOrderHistory(req.params.id);
+            const orders = await db.customerOps.getOrderHistory(req.params.id);
             res.json(orders);
         } catch (error) {
             console.error('Error fetching customer orders:', error);
@@ -241,13 +244,13 @@ function addCustomerManagementEndpoints(app, db, checkPermission) {
             }
 
             // Check if customer already exists
-            const existing = await db.customer.getByPhone(phone);
+            const existing = await db.customerOps.getByPhone(phone);
             if (existing) {
                 return res.status(409).json({ error: 'Customer with this phone already exists', customer: existing });
             }
 
-            const id = await db.customer.create(name, phone, email);
-            const customer = await db.customer.getById(id);
+            const id = await db.customerOps.create(name, phone, email);
+            const customer = await db.customerOps.getById(id);
             res.status(201).json(customer);
         } catch (error) {
             console.error('Error creating customer:', error);
@@ -259,7 +262,7 @@ function addCustomerManagementEndpoints(app, db, checkPermission) {
     app.put('/api/customers/:id', async (req, res) => {
         try {
             const { name, phone, email, notes } = req.body;
-            await db.customer.update(req.params.id, { name, phone, email, notes });
+            await db.customerOps.update(req.params.id, { name, phone, email, notes });
             res.json({ success: true });
         } catch (error) {
             console.error('Error updating customer:', error);
@@ -1246,6 +1249,111 @@ function addInventoryReportEndpoints(app, db, checkPermission) {
     });
 }
 
+// Health Check Endpoint
+function addHealthCheckEndpoint(app, db, databaseManager) {
+    // GET system health check
+    app.get('/api/health', async (req, res) => {
+        try {
+            const healthCheck = {
+                timestamp: new Date().toISOString(),
+                status: 'healthy',
+                components: {}
+            };
+
+            // Check database connection
+            if (databaseManager) {
+                const dbStatus = databaseManager.getDatabaseStatus();
+                healthCheck.components.database = {
+                    connected: dbStatus.connected,
+                    ready: dbStatus.isReady,
+                    schemaValid: dbStatus.schemaValid,
+                    status: dbStatus.currentStatus
+                };
+
+                if (!dbStatus.isReady) {
+                    healthCheck.status = 'degraded';
+                }
+            } else if (db) {
+                // Fallback to direct database check
+                try {
+                    await db.get('SELECT 1');
+                    healthCheck.components.database = {
+                        connected: true,
+                        ready: true,
+                        status: 'connected'
+                    };
+                } catch (dbError) {
+                    healthCheck.components.database = {
+                        connected: false,
+                        ready: false,
+                        status: 'failed',
+                        error: dbError.message
+                    };
+                    healthCheck.status = 'unhealthy';
+                }
+            }
+
+            // Check server status
+            healthCheck.components.server = {
+                uptime: process.uptime(),
+                memoryUsage: process.memoryUsage(),
+                eventLoopLag: process.eventLoopLag ? await process.eventLoopLag() : 0
+            };
+
+            // Check system resources
+            const os = require('os');
+            healthCheck.components.system = {
+                freeMemory: os.freemem(),
+                totalMemory: os.totalmem(),
+                cpuCount: os.cpus().length,
+                platform: os.platform(),
+                arch: os.arch()
+            };
+
+            res.json(healthCheck);
+        } catch (error) {
+            console.error('Health check failed:', error);
+            res.status(500).json({
+                timestamp: new Date().toISOString(),
+                status: 'unhealthy',
+                error: error.message,
+                components: {}
+            });
+        }
+    });
+
+    // GET database health check
+    app.get('/api/health/database', async (req, res) => {
+        try {
+            if (databaseManager) {
+                const dbStatus = databaseManager.getDatabaseStatus();
+                const healthCheck = await databaseManager.performHealthCheck();
+
+                res.json({
+                    timestamp: new Date().toISOString(),
+                    connected: dbStatus.connected,
+                    ready: dbStatus.isReady,
+                    schemaValid: dbStatus.schemaValid,
+                    healthCheck: healthCheck,
+                    status: dbStatus.currentStatus,
+                    lastError: dbStatus.lastError,
+                    retryCount: dbStatus.retryCount
+                });
+            } else {
+                res.status(500).json({ error: 'Database manager not available' });
+            }
+        } catch (error) {
+            console.error('Database health check failed:', error);
+            res.status(500).json({
+                timestamp: new Date().toISOString(),
+                connected: false,
+                ready: false,
+                error: error.message
+            });
+        }
+    });
+}
+
 module.exports = {
     addUserManagementEndpoints,
     addRoleManagementEndpoints,
@@ -1260,5 +1368,6 @@ module.exports = {
     addInventoryAlertEndpoints,
     addInventoryTransferEndpoints,
     addOrderHoldEndpoints,
-    addInventoryReportEndpoints
+    addInventoryReportEndpoints,
+    addHealthCheckEndpoint
 };

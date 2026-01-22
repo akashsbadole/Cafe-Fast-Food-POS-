@@ -1,0 +1,201 @@
+{
+  "timestamp": "2026-01-20T20:19:24.528Z",
+  "summary": {
+    "totalMigrations": 17,
+    "successful": 6,
+    "failed": 11,
+    "successRate": "35.29",
+    "tablesCreated": 82
+  },
+  "migrationTimes": [
+    {
+      "file": "001_initial_schema.sql",
+      "duration": 688
+    },
+    {
+      "file": "003_product_modifiers.sql",
+      "duration": 713
+    },
+    {
+      "file": "005_kds_integration.sql",
+      "duration": 70
+    },
+    {
+      "file": "015_online_order_integration.sql",
+      "duration": 453
+    },
+    {
+      "file": "016_digital_receipts.sql",
+      "duration": 1148
+    },
+    {
+      "file": "017_hardware_drivers.sql",
+      "duration": 163
+    }
+  ],
+  "tables": [
+    "audit_logs",
+    "backup_history",
+    "backup_schedules",
+    "buzzers",
+    "cash_drawer_audit_logs",
+    "cash_drawer_reconciliations",
+    "cash_drawer_sessions",
+    "cash_drawer_transactions",
+    "cash_drawers",
+    "categories",
+    "cfd_content",
+    "combo_deals",
+    "combo_items",
+    "combo_pricing",
+    "combo_restrictions",
+    "conflict_resolution",
+    "customer_communication_preferences",
+    "digital_receipt_history",
+    "digital_receipt_templates",
+    "hardware_device_configs",
+    "hardware_device_logs",
+    "hardware_device_status",
+    "hardware_devices",
+    "ingredient_conversion_rates",
+    "inventory_weight_logs",
+    "kds_order_items",
+    "kds_orders",
+    "kds_stations",
+    "kds_status_history",
+    "kot_tickets",
+    "locations",
+    "loyalty_customer_memberships",
+    "loyalty_points_transactions",
+    "loyalty_programs",
+    "loyalty_punch_card_instances",
+    "loyalty_punch_cards",
+    "loyalty_rewards",
+    "loyalty_tiers",
+    "menu_item_modifier_groups",
+    "menu_items",
+    "modifier_groups",
+    "modifiers",
+    "offline_sessions",
+    "online_order_credentials",
+    "online_order_history",
+    "online_order_providers",
+    "online_order_webhooks",
+    "order_item_modifiers",
+    "order_items",
+    "orders",
+    "orders_buzzers",
+    "orders_tables",
+    "print_jobs",
+    "recipe_ingredients",
+    "recipe_usage_history",
+    "recipes",
+    "report_templates",
+    "scheduled_reports",
+    "settings",
+    "split_bill_customers",
+    "split_bill_history",
+    "split_bill_items",
+    "split_bill_payments",
+    "split_bill_sessions",
+    "sqlite_sequence",
+    "sync_history",
+    "sync_metadata",
+    "sync_queue",
+    "system_health",
+    "table_layout_positions",
+    "table_layouts",
+    "tables",
+    "tax_configurations",
+    "tax_rates",
+    "tax_settings",
+    "users",
+    "void_refund_approvals",
+    "void_refund_audit_logs",
+    "void_refund_reasons",
+    "void_refund_requests",
+    "weight_pricing_tiers",
+    "weighted_items"
+  ],
+  "errors": [
+    {
+      "file": "002_enterprise_features.sql",
+      "error": "SQLITE_ERROR: near \"EXISTS\": syntax error"
+    },
+    {
+      "file": "004_table_buzzer_management.sql",
+      "error": "SQLITE_ERROR: near \"EXISTS\": syntax error"
+    },
+    {
+      "file": "006_combo_deals.sql",
+      "error": "SQLITE_ERROR: near \"EXISTS\": syntax error"
+    },
+    {
+      "file": "007_weighted_items.sql",
+      "error": "SQLITE_ERROR: near \"EXISTS\": syntax error"
+    },
+    {
+      "file": "008_offline_sync.sql",
+      "error": "SQLITE_ERROR: near \"EXISTS\": syntax error"
+    },
+    {
+      "file": "009_split_billing.sql",
+      "error": "SQLITE_ERROR: near \"EXISTS\": syntax error"
+    },
+    {
+      "file": "010_void_refund_workflow.sql",
+      "error": "SQLITE_ERROR: near \"EXISTS\": syntax error"
+    },
+    {
+      "file": "011_cash_drawer_reconciliation.sql",
+      "error": "SQLITE_ERROR: near \"INTO\": syntax error"
+    },
+    {
+      "file": "012_recipe_bom_tracking.sql",
+      "error": "SQLITE_ERROR: near \"EXISTS\": syntax error"
+    },
+    {
+      "file": "013_tax_engine_enhancement.sql",
+      "error": "SQLITE_ERROR: near \"EXISTS\": syntax error"
+    },
+    {
+      "file": "014_loyalty_points_system.sql",
+      "error": "SQLITE_ERROR: no such table: customers"
+    }
+  ],
+  "featureCoverage": {
+    "Core Infrastructure": [
+      "Core Database Schema",
+      "Enterprise Features"
+    ],
+    "Product Management": [
+      "Product Modifiers/Add-ons",
+      "Combo/Meal Deals",
+      "Weighted Items"
+    ],
+    "Order Processing": [
+      "Table/Buzzer Management",
+      "Split Billing",
+      "Void/Refund Workflow"
+    ],
+    "Kitchen Operations": [
+      "Kitchen Display System (KDS)",
+      "Recipe/BOM Tracking"
+    ],
+    "Financials": [
+      "Cash Drawer Reconciliation",
+      "Tax Engine Enhancement"
+    ],
+    "Customer Experience": [
+      "Customer Loyalty Points",
+      "Digital Receipts",
+      "Online Order Integration"
+    ],
+    "Hardware": [
+      "Hardware Drivers (ESC/POS, CFD)"
+    ],
+    "Offline Capabilities": [
+      "Offline Mode Synchronization"
+    ]
+  }
+}

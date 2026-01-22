@@ -8,6 +8,7 @@ CREATE TABLE IF NOT EXISTS users (
     password_hash TEXT NOT NULL,
     pin_hash TEXT NOT NULL,
     role TEXT DEFAULT 'admin',
+    is_active INTEGER DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP
 );
@@ -91,6 +92,7 @@ CREATE TABLE IF NOT EXISTS tax_settings (
 CREATE TABLE IF NOT EXISTS settings (
     key TEXT PRIMARY KEY,
     value TEXT,
+    description TEXT,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 

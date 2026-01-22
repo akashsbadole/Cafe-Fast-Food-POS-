@@ -12,7 +12,7 @@ const serverProcess = spawn('node', ['server.js'], {
 // Wait a moment for the server to start
 setTimeout(() => {
   // Then start the Electron app
-  const electronProcess = spawn(path.join(__dirname, 'node_modules', 'electron', 'dist', 'electron.exe'), ['main.js'], {
+  const electronProcess = spawn(path.join(__dirname, 'node_modules', 'electron', 'dist', 'electron.exe'), ['.'], {
     stdio: 'inherit',
     cwd: __dirname
   });

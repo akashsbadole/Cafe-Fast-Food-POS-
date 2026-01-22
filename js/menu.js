@@ -3,6 +3,7 @@
 const Menu = {
   categories: [],
   items: [],
+  combos: [],
   currentCategory: 'all',
   searchQuery: '',
   
@@ -10,6 +11,7 @@ const Menu = {
   init: () => {
     Menu.loadCategories();
     Menu.loadItems();
+    Menu.loadCombos();
     Menu.renderCategories();
     Menu.renderItems();
     Menu.setupEventListeners();
@@ -23,6 +25,17 @@ const Menu = {
   // Load menu items from database
   loadItems: () => {
     Menu.items = menu.getAll();
+  },
+  
+  // Load combo deals from database
+  loadCombos: async () => {
+    try {
+      const ComboManager = require('./combo-manager');
+      Menu.combos = await ComboManager.getAllActiveCombos();
+    } catch (error) {
+      console.error('Error loading combos:', error);
+      Menu.combos = [];
+    }
   },
   
   // Render category tabs
@@ -54,7 +67,7 @@ const Menu = {
     // Filter by search
     if (Menu.searchQuery) {
       const query = Menu.searchQuery.toLowerCase();
-      filteredItems = filteredItems.filter(item => 
+      filteredItems = filteredItems.filter(item =>
         item.name.toLowerCase().includes(query) ||
         item.description.toLowerCase().includes(query)
       );
@@ -76,14 +89,16 @@ const Menu = {
     let html = '';
     filteredItems.forEach(item => {
       const icon = item.category_icon || '🍽️';
+      const priceDisplay = item.is_weighted ? 'By Weight' : Utils.formatCurrency(item.price);
       html += `
-        <div class="menu-item ${item.is_available ? '' : 'unavailable'}" 
-             data-id="${item.id}" 
+        <div class="menu-item ${item.is_available ? '' : 'unavailable'} ${item.is_weighted ? 'weighted' : ''}"
+             data-id="${item.id}"
              data-name="${item.name}"
-             data-price="${item.price}">
+             data-price="${item.price}"
+             data-is-weighted="${item.is_weighted || 0}">
           <div class="menu-item-icon">${icon}</div>
           <div class="menu-item-name">${item.name}</div>
-          <div class="menu-item-price">${Utils.formatCurrency(item.price)}</div>
+          <div class="menu-item-price">${priceDisplay}</div>
         </div>
       `;
     });
@@ -124,8 +139,14 @@ const Menu = {
           const itemId = parseInt(menuItem.dataset.id);
           const itemName = menuItem.dataset.name;
           const itemPrice = parseFloat(menuItem.dataset.price);
+          const isWeighted = menuItem.dataset.isWeighted === '1';
           
-          Cart.addItem(itemId, itemName, itemPrice);
+          if (isWeighted) {
+            // For weighted items, show weight input modal
+            Cart.showWeightInputModal(itemId, itemName, itemPrice);
+          } else {
+            Cart.addItem(itemId, itemName, itemPrice);
+          }
         }
       });
     }

@@ -89,9 +89,14 @@ function validatePin(pin) {
 
 // Sanitize string for display
 function sanitizeString(str) {
-  const div = document.createElement('div');
-  div.textContent = str;
-  return div.innerHTML;
+  // In Node.js, return as-is
+  // In browser, use DOM sanitization
+  if (typeof window !== 'undefined' && window.document) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+  return String(str);
 }
 
 // Get initials from name
@@ -107,7 +112,12 @@ function getInitials(name) {
 // Copy text to clipboard
 async function copyToClipboard(text) {
   try {
-    await navigator.clipboard.writeText(text);
+    if (typeof window !== 'undefined' && navigator.clipboard) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      // Fallback for Node.js or older browsers
+      console.log('Text to copy:', text);
+    }
     return true;
   } catch (err) {
     console.error('Failed to copy:', err);
@@ -117,6 +127,12 @@ async function copyToClipboard(text) {
 
 // Print element
 function printElement(elementId) {
+  // This is a browser-only function
+  if (typeof window === 'undefined' || !window.document) {
+    console.warn('printElement is only available in browser context');
+    return;
+  }
+  
   const element = document.getElementById(elementId);
   if (!element) return;
   
@@ -147,8 +163,11 @@ function printElement(elementId) {
 const storage = {
   get: (key, defaultValue = null) => {
     try {
-      const item = localStorage.getItem(key);
-      return item ? JSON.parse(item) : defaultValue;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const item = localStorage.getItem(key);
+        return item ? JSON.parse(item) : defaultValue;
+      }
+      return defaultValue;
     } catch (e) {
       return defaultValue;
     }
@@ -156,24 +175,31 @@ const storage = {
   
   set: (key, value) => {
     try {
-      localStorage.setItem(key, JSON.stringify(value));
-      return true;
+      if (typeof window !== 'undefined' && window.localStorage) {
+        localStorage.setItem(key, JSON.stringify(value));
+        return true;
+      }
+      return false;
     } catch (e) {
       return false;
     }
   },
   
   remove: (key) => {
-    localStorage.removeItem(key);
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.removeItem(key);
+    }
   },
   
   clear: () => {
-    localStorage.clear();
+    if (typeof window !== 'undefined' && window.localStorage) {
+      localStorage.clear();
+    }
   }
 };
 
 // Export utilities
-window.Utils = {
+const utils = {
   formatCurrency,
   formatDate,
   formatTime,
@@ -192,3 +218,11 @@ window.Utils = {
   printElement,
   storage
 };
+
+// Export for Node.js
+module.exports = utils;
+
+// Export for browser
+if (typeof window !== 'undefined') {
+  window.Utils = utils;
+}

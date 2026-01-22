@@ -11,17 +11,32 @@ const fs = require('fs');
 
 const upload = multer({ dest: 'uploads/' });
 require('dotenv').config();
+
+// Import security middleware
+const security = require('./js/security-middleware');
 const logger = require('./js/logger');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-this-in-prod'; // Secret key
+const JWT_SECRET = process.env.JWT_SECRET || security.SECURITY_CONFIG.jwtSecret;
 
 // Middleware
 app.use(cors());
-app.use(express.json());
+
+// Apply security middleware in order
+app.use(security.logActivity);
+app.use(security.addSecurityHeaders);
+app.use(security.helmet);
+app.use(security.generalLimiter);
+app.use(security.sanitizeInput);
+app.use(security.preventSQLInjection);
+app.use(security.preventXSS);
+app.use(security.requestSizeLimiter('10mb'));
+
 // Serve static files from the app directory
 app.use(express.static(path.join(__dirname)));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // RBAC Middleware with CASL
 const { defineAbilityFor } = require('./js/abilities');
@@ -188,6 +203,10 @@ app.use((err, req, res, next) => {
 
 // Auth: Verify PIN
 app.post('/api/auth/verify-pin', async (req, res) => {
+  if (!db) {
+    logger.error('Database not initialized');
+    return res.status(500).json({ error: 'Database not ready' });
+  }
   try {
     const { pin } = req.body;
 
@@ -213,7 +232,7 @@ app.post('/api/auth/verify-pin', async (req, res) => {
 
     res.status(401).json({ error: 'Invalid PIN' });
   } catch (err) {
-    console.error(err);
+    logger.error('PIN verification error:', err);
     res.status(500).json({ error: 'Server error' });
   }
 });
@@ -1031,6 +1050,66 @@ async function startServer() {
     // Add enterprise endpoints
     const enterpriseEndpoints = require('./js/enterprise-endpoints.js');
     app.use(enterpriseEndpoints);
+
+    // Add modifier endpoints
+    const modifierEndpoints = require('./js/modifier-endpoints.js');
+    app.use(modifierEndpoints);
+
+    // Add combo endpoints
+    const comboEndpoints = require('./js/combo-endpoints.js');
+    app.use(comboEndpoints);
+
+    // Add weight endpoints
+    const weightEndpoints = require('./js/weight-endpoints.js');
+    app.use(weightEndpoints);
+
+    // Add split bill endpoints
+    const splitBillEndpoints = require('./js/split-bill-endpoints.js');
+    app.use(splitBillEndpoints);
+
+    // Add void/refund endpoints
+    const voidRefundEndpoints = require('./js/void-refund-endpoints.js');
+    app.use(voidRefundEndpoints);
+
+    // Add KDS endpoints
+    const kdsEndpoints = require('./js/kds-endpoints.js');
+    app.use(kdsEndpoints);
+
+    // Add hardware endpoints
+    const hardwareEndpoints = require('./js/hardware-endpoints.js');
+    app.use(hardwareEndpoints);
+
+    // Add digital receipt endpoints
+    const digitalReceiptEndpoints = require('./js/digital-receipt-endpoints.js');
+    app.use(digitalReceiptEndpoints);
+
+    // Add loyalty endpoints
+    const loyaltyEndpoints = require('./js/loyalty-endpoints.js');
+    app.use(loyaltyEndpoints);
+
+    // Add online order endpoints
+    const onlineOrderEndpoints = require('./js/online-order-endpoints.js');
+    app.use(onlineOrderEndpoints);
+
+    // Add recipe endpoints
+    const recipeEndpoints = require('./js/recipe-endpoints.js');
+    app.use(recipeEndpoints);
+
+    // Add cash drawer endpoints
+    const cashDrawerEndpoints = require('./js/cash-drawer-endpoints.js');
+    app.use(cashDrawerEndpoints);
+
+    // Add buzzer endpoints
+    const buzzerEndpoints = require('./js/buzzer-endpoints.js');
+    app.use(buzzerEndpoints);
+
+    // Add table endpoints
+    const tableEndpoints = require('./js/table-endpoints.js');
+    app.use(tableEndpoints);
+
+    // Add offline/sync endpoints
+    const offlineEndpoints = require('./js/offline-endpoints.js');
+    app.use(offlineEndpoints);
 
     console.log('All endpoints added successfully');
 

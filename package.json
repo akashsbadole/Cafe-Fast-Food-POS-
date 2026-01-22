@@ -6,7 +6,15 @@
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "test": "echo 'Run tests by framework:' && echo 'Jest: npx jest' && echo 'Mocha: npx mocha' && echo 'All: npm run test:all'",
+    "test:all": "echo 'Running all tests...' && npx jest --testPathPattern='\\.test\\.js$' --testTimeout=10000 || npx mocha 'js/**/*.test.js' --timeout 10000",
+    "test:jest": "npx jest --testPathPattern='\\.test\\.js$' --testTimeout=10000",
+    "test:mocha": "npx mocha 'js/**/*.test.js' --timeout 10000",
+    "test:unit": "echo 'Running unit tests...' && npm run test:jest && npm run test:mocha",
+    "test:integration": "echo 'Starting API server for integration tests...' && node server.js & sleep 2 && npx mocha js/*-endpoints.test.js --timeout 10000",
+    "test:report": "node run-all-tests.js",
+    "test:watch": "npx jest --watch"
   },
   "author": "Cafe POS Team - akash badole",
   "license": "MIT",
@@ -17,21 +25,37 @@
     "cors": "^2.8.5",
     "csv-parser": "^3.2.0",
     "dotenv": "^16.6.1",
+    "electron": "^40.0.0",
     "express": "^4.22.1",
+    "express-rate-limit": "^8.2.1",
+    "helmet": "^8.1.0",
+    "joi": "^18.0.2",
     "json2csv": "^6.0.0-alpha.2",
     "jsonwebtoken": "^9.0.3",
     "multer": "^1.4.5-lts.1",
     "node-cron": "^3.0.2",
     "nodemailer": "^7.0.12",
     "pdfkit": "^0.14.0",
+    "pg": "^8.17.2",
     "sql.js": "^1.13.0"
   },
   "devDependencies": {
-    "electron": "^40.0.0",
-    "electron-builder": "^26.4.0"
+    "axios": "^1.13.2",
+    "chai": "^6.2.2",
+    "electron-builder": "^26.4.0",
+    "fast-check": "^4.5.3",
+    "jest": "^30.2.0",
+    "mocha": "^11.7.5",
+    "node-fetch": "^3.3.2",
+    "serialport": "^13.0.0",
+    "sinon": "^21.0.1",
+    "sqlite3": "^5.1.7",
+    "supertest": "^7.2.2",
+    "usb": "^2.17.0",
+    "ws": "^8.19.0"
   },
   "overrides": {
-    "tar": "7.5.3"
+    "tar": "7.5.4"
   },
   "build": {
     "appId": "com.cafeshopee.pos",

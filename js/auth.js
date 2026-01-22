@@ -3,65 +3,121 @@
 const bcrypt = require('bcryptjs');
 
 const Auth = {
+  // Database instance - will be set during initialization
+  db: null,
+  
+  // Initialize auth with database
+  init: (database) => {
+    if (!database) {
+      throw new Error('Database instance is required for authentication');
+    }
+    Auth.db = database;
+  },
+  
   // Verify PIN
   verifyPin: async (pin) => {
-    const user = db.prepare('SELECT id, pin_hash FROM users WHERE username = ?').get('admin');
-    if (!user) return false;
-    
-    return bcrypt.compareSync(pin, user.pin_hash);
+    try {
+      if (!Auth.db) {
+        throw new Error('Database not initialized');
+      }
+      
+      const user = await Auth.db.get('SELECT id, pin_hash FROM users WHERE username = ?', ['admin']);
+      if (!user) return false;
+      
+      return bcrypt.compareSync(pin, user.pin_hash);
+    } catch (error) {
+      console.error('Error verifying PIN:', error);
+      throw new Error('Authentication failed: ' + error.message);
+    }
   },
   
   // Verify password
   verifyPassword: async (password) => {
-    const user = db.prepare('SELECT id, password_hash FROM users WHERE username = ?').get('admin');
-    if (!user) return false;
-    
-    return bcrypt.compareSync(password, user.password_hash);
+    try {
+      if (!Auth.db) {
+        throw new Error('Database not initialized');
+      }
+      
+      const user = await Auth.db.get('SELECT id, password_hash FROM users WHERE username = ?', ['admin']);
+      if (!user) return false;
+      
+      return bcrypt.compareSync(password, user.password_hash);
+    } catch (error) {
+      console.error('Error verifying password:', error);
+      throw new Error('Authentication failed: ' + error.message);
+    }
   },
   
   // Login user
-  login: (pin) => {
-    const user = db.prepare('SELECT id, username, role FROM users WHERE username = ?').get('admin');
-    if (!user) return null;
-    
-    // Update last login
-    db.prepare('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?').run(user.id);
-    
-    return {
-      id: user.id,
-      username: user.username,
-      role: user.role
-    };
+  login: async (pin) => {
+    try {
+      if (!Auth.db) {
+        throw new Error('Database not initialized');
+      }
+      
+      const user = await Auth.db.get('SELECT id, username, role FROM users WHERE username = ?', ['admin']);
+      if (!user) return null;
+      
+      // Update last login
+      await Auth.db.run('UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = ?', [user.id]);
+      
+      return {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      };
+    } catch (error) {
+      console.error('Error logging in:', error);
+      throw new Error('Login failed: ' + error.message);
+    }
   },
   
   // Change PIN
-  changePin: (currentPin, newPin) => {
-    const user = db.prepare('SELECT id, pin_hash FROM users WHERE username = ?').get('admin');
-    if (!user) return { success: false, message: 'User not found' };
-    
-    if (!bcrypt.compareSync(currentPin, user.pin_hash)) {
-      return { success: false, message: 'Current PIN is incorrect' };
+  changePin: async (currentPin, newPin) => {
+    try {
+      if (!Auth.db) {
+        throw new Error('Database not initialized');
+      }
+      
+      const user = await Auth.db.get('SELECT id, pin_hash FROM users WHERE username = ?', ['admin']);
+      if (!user) return { success: false, message: 'User not found' };
+      
+      if (!bcrypt.compareSync(currentPin, user.pin_hash)) {
+        return { success: false, message: 'Current PIN is incorrect' };
+      }
+      
+      const newPinHash = bcrypt.hashSync(newPin, 10);
+      await Auth.db.run('UPDATE users SET pin_hash = ? WHERE id = ?', [newPinHash, user.id]);
+      
+      return { success: true, message: 'PIN changed successfully' };
+    } catch (error) {
+      console.error('Error changing PIN:', error);
+      throw new Error('PIN change failed: ' + error.message);
     }
-    
-    const newPinHash = bcrypt.hashSync(newPin, 10);
-    db.prepare('UPDATE users SET pin_hash = ? WHERE id = ?').run(newPinHash, user.id);
-    
-    return { success: true, message: 'PIN changed successfully' };
   },
   
   // Change password
   changePassword: async (currentPassword, newPassword) => {
-    const user = db.prepare('SELECT id, password_hash FROM users WHERE username = ?').get('admin');
-    if (!user) return { success: false, message: 'User not found' };
-    
-    if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
-      return { success: false, message: 'Current password is incorrect' };
+    try {
+      if (!Auth.db) {
+        throw new Error('Database not initialized');
+      }
+      
+      const user = await Auth.db.get('SELECT id, password_hash FROM users WHERE username = ?', ['admin']);
+      if (!user) return { success: false, message: 'User not found' };
+      
+      if (!bcrypt.compareSync(currentPassword, user.password_hash)) {
+        return { success: false, message: 'Current password is incorrect' };
+      }
+      
+      const newPasswordHash = bcrypt.hashSync(newPassword, 10);
+      await Auth.db.run('UPDATE users SET password_hash = ? WHERE id = ?', [newPasswordHash, user.id]);
+      
+      return { success: true, message: 'Password changed successfully' };
+    } catch (error) {
+      console.error('Error changing password:', error);
+      throw new Error('Password change failed: ' + error.message);
     }
-    
-    const newPasswordHash = bcrypt.hashSync(newPassword, 10);
-    db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(newPasswordHash, user.id);
-    
-    return { success: true, message: 'Password changed successfully' };
   }
 };
 

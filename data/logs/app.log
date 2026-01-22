@@ -7,3 +7,90 @@
 [2026-01-19T19:37:01.004Z] ERROR: Error fetching settings: {}
 [2026-01-19T19:47:18.667Z] ERROR: Error fetching settings: {}
 [2026-01-19T19:47:18.676Z] ERROR: Error fetching settings: {}
+[2026-01-20T20:57:45.636Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T20:57:45.787Z] INFO: KDS WebSocket connected
+[2026-01-20T20:58:51.399Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T20:58:51.401Z] INFO: KDS WebSocket connected
+[2026-01-20T21:09:24.633Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T21:09:24.635Z] INFO: KDS WebSocket connected
+[2026-01-20T21:11:23.658Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:11:52.815Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:12:11.082Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:12:19.121Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:12:54.897Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:12:55.081Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T21:12:55.081Z] INFO: KDS WebSocket connected
+[2026-01-20T21:24:13.931Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:24:14.153Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T21:24:14.154Z] INFO: KDS WebSocket connected
+[2026-01-20T21:39:23.120Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:39:23.359Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T21:39:23.359Z] INFO: KDS WebSocket connected
+[2026-01-20T21:41:03.978Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:41:04.146Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T21:41:04.146Z] INFO: KDS WebSocket connected
+[2026-01-20T21:43:23.456Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:43:23.632Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T21:43:23.632Z] INFO: KDS WebSocket connected
+[2026-01-20T21:45:43.357Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:45:43.533Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T21:45:43.533Z] INFO: KDS WebSocket connected
+[2026-01-20T21:46:55.950Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:46:56.138Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T21:46:56.138Z] INFO: KDS WebSocket connected
+[2026-01-20T21:48:39.458Z] INFO: [SyncManager] Initialized
+[2026-01-20T21:48:39.623Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-20T21:48:39.624Z] INFO: KDS WebSocket connected
+[2026-01-20T21:48:43.543Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T16:55:07.308Z] INFO: [SyncManager] Initialized
+[2026-01-21T16:55:11.688Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-21T16:55:11.689Z] INFO: KDS WebSocket connected
+[2026-01-21T16:56:56.336Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T17:00:07.310Z] INFO: [SyncManager] Starting sync process
+[2026-01-21T17:00:07.318Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-21T17:05:07.321Z] INFO: [SyncManager] Starting sync process
+[2026-01-21T17:05:07.428Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-21T17:08:34.221Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T17:09:06.176Z] INFO: [SyncManager] Initialized
+[2026-01-21T17:09:12.548Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-21T17:09:12.549Z] INFO: KDS WebSocket connected
+[2026-01-21T17:09:23.679Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T17:14:06.190Z] INFO: [SyncManager] Starting sync process
+[2026-01-21T17:14:06.191Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-21T17:19:06.195Z] INFO: [SyncManager] Starting sync process
+[2026-01-21T17:19:06.198Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-21T17:29:30.737Z] INFO: [SyncManager] Initialized
+[2026-01-21T17:29:32.910Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-21T17:29:32.910Z] INFO: KDS WebSocket connected
+[2026-01-21T17:29:43.964Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T17:30:14.785Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T17:30:18.005Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T17:34:30.745Z] INFO: [SyncManager] Starting sync process
+[2026-01-21T17:34:30.746Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-21T17:38:19.045Z] INFO: [SyncManager] Initialized
+[2026-01-21T17:38:19.201Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-21T17:38:19.201Z] INFO: KDS WebSocket connected
+[2026-01-21T17:38:46.382Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T17:42:16.782Z] INFO: [SyncManager] Initialized
+[2026-01-21T17:42:16.932Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-21T17:42:16.932Z] INFO: KDS WebSocket connected
+[2026-01-21T17:42:23.508Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T17:47:16.795Z] INFO: [SyncManager] Starting sync process
+[2026-01-21T17:47:16.796Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-21T17:48:49.754Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T18:07:00.288Z] INFO: [SyncManager] Initialized
+[2026-01-21T18:07:00.481Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-21T18:07:00.481Z] INFO: KDS WebSocket connected
+[2026-01-21T18:07:11.866Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T18:12:00.303Z] INFO: [SyncManager] Starting sync process
+[2026-01-21T18:12:00.304Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-21T18:14:28.096Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T18:14:31.828Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
+[2026-01-21T18:17:00.309Z] INFO: [SyncManager] Starting sync process
+[2026-01-21T18:17:00.310Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-21T18:28:21.109Z] INFO: [SyncManager] Initialized
+[2026-01-21T18:28:21.299Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-21T18:28:21.299Z] INFO: KDS WebSocket connected
+[2026-01-21T18:29:17.652Z] INFO: [SyncManager] Initialized
+[2026-01-21T18:29:17.804Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-21T18:29:17.805Z] INFO: KDS WebSocket connected

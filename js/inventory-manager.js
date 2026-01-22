@@ -9,6 +9,11 @@ class InventoryManager {
   // Initialize inventory system
   async init() {
     try {
+      // Initialize recipe manager if needed
+      const RecipeManager = require('./recipe-manager');
+      this.recipeManager = new RecipeManager(this.db, this);
+      await this.recipeManager.init();
+
       // Create suppliers table if not exists
       this.db.run(`
         CREATE TABLE IF NOT EXISTS suppliers (
@@ -812,7 +817,7 @@ class InventoryManager {
   // Get supplier performance report
   async getSupplierPerformanceReport(startDate, endDate) {
     const result = this.db.exec(`
-      SELECT 
+      SELECT
         s.id,
         s.name,
         s.phone,
@@ -830,6 +835,372 @@ class InventoryManager {
     `, [startDate, endDate]);
 
     return this._resultToObjects(result);
+  }
+
+  // ==================== WEIGHT TRACKING ====================
+
+  // Initialize weight tracking for an item
+  async initializeWeightTracking(menuItemId, currentWeight, maxWeight, weightUnit = 'gram') {
+    const result = this.db.prepare(`
+      INSERT OR REPLACE INTO inventory_items
+      (id, menu_item_id, current_weight, max_weight, weight_unit, last_updated)
+      VALUES (
+        (SELECT id FROM inventory_items WHERE menu_item_id = ?),
+        ?,
+        ?,
+        ?,
+        ?,
+        CURRENT_TIMESTAMP
+      )
+    `).run(
+      menuItemId,
+      menuItemId,
+      currentWeight,
+      maxWeight,
+      weightUnit
+    );
+
+    return { success: true, message: 'Weight tracking initialized' };
+  }
+
+  // Get weight tracking for an item
+  async getWeightTracking(menuItemId) {
+    const result = this.db.exec('SELECT * FROM inventory_items WHERE menu_item_id = ?', [menuItemId]);
+    const items = this._resultToObjects(result);
+    return items[0] || null;
+  }
+
+  // Update weight after sale
+  async updateWeightAfterSale(menuItemId, weightUsed, weightUnit = 'gram', orderId = null, orderItemId = null) {
+    const inventory = await this.getWeightTracking(menuItemId);
+
+    if (!inventory) {
+      throw new Error('Weight tracking not initialized for this item');
+    }
+
+    // Convert weight to the item's base unit
+    const convertedWeight = this._convertWeight(weightUsed, weightUnit, inventory.weight_unit);
+
+    // Check if there's enough stock
+    if (inventory.current_weight < convertedWeight) {
+      throw new Error('Insufficient inventory weight');
+    }
+
+    // Update inventory
+    const newWeight = inventory.current_weight - convertedWeight;
+    this.db.run(`
+      UPDATE inventory_items SET
+        current_weight = ?,
+        last_updated = CURRENT_TIMESTAMP
+      WHERE menu_item_id = ?
+    `, [newWeight, menuItemId]);
+
+    // Log the transaction
+    await this.db.run(`
+      INSERT INTO inventory_weight_logs
+      (menu_item_id, order_id, order_item_id, weight_used, weight_unit, current_stock, transaction_type)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `, [
+      menuItemId,
+      orderId || null,
+      orderItemId || null,
+      convertedWeight,
+      inventory.weight_unit,
+      newWeight,
+      'sale'
+    ]);
+
+    return {
+      success: true,
+      newWeight: newWeight,
+      weightUnit: inventory.weight_unit
+    };
+  }
+
+  // Restock weight
+  async restockWeight(menuItemId, weightAdded, weightUnit = 'gram') {
+    const inventory = await this.getWeightTracking(menuItemId);
+
+    if (!inventory) {
+      throw new Error('Weight tracking not initialized for this item');
+    }
+
+    // Convert weight to the item's base unit
+    const convertedWeight = this._convertWeight(weightAdded, weightUnit, inventory.weight_unit);
+
+    // Update inventory
+    const newWeight = inventory.current_weight + convertedWeight;
+    this.db.run(`
+      UPDATE inventory_items SET
+        current_weight = ?,
+        last_updated = CURRENT_TIMESTAMP
+      WHERE menu_item_id = ?
+    `, [newWeight, menuItemId]);
+
+    // Log the transaction
+    await this.db.run(`
+      INSERT INTO inventory_weight_logs
+      (menu_item_id, weight_used, weight_unit, current_stock, transaction_type)
+      VALUES (?, ?, ?, ?, ?)
+    `, [
+      menuItemId,
+      convertedWeight,
+      inventory.weight_unit,
+      newWeight,
+      'restock'
+    ]);
+
+    return {
+      success: true,
+      newWeight: newWeight,
+      weightUnit: inventory.weight_unit
+    };
+  }
+
+  // Get weight usage history
+  async getWeightUsageHistory(menuItemId, limit = 50) {
+    const query = `
+      SELECT * FROM inventory_weight_logs
+      WHERE menu_item_id = ?
+      ORDER BY created_at DESC
+      LIMIT ?
+    `;
+
+    const result = this.db.exec(query, [menuItemId, limit]);
+    return this._resultToObjects(result);
+  }
+
+  // Convert weight between units
+  _convertWeight(weight, fromUnit, toUnit) {
+    if (fromUnit === toUnit) return weight;
+    
+    // Convert to grams first
+    let weightInGrams;
+    switch (fromUnit) {
+      case 'gram':
+        weightInGrams = weight;
+        break;
+      case 'kilogram':
+        weightInGrams = weight * 1000;
+        break;
+      case 'ounce':
+        weightInGrams = weight * 28.3495;
+        break;
+      case 'pound':
+        weightInGrams = weight * 453.592;
+        break;
+      default:
+        weightInGrams = weight;
+    }
+    
+    // Convert from grams to target unit
+    switch (toUnit) {
+      case 'gram':
+        return weightInGrams;
+      case 'kilogram':
+        return weightInGrams / 1000;
+      case 'ounce':
+        return weightInGrams / 28.3495;
+      case 'pound':
+        return weightInGrams / 453.592;
+      default:
+        return weightInGrams;
+    }
+  }
+
+  // ==================== VOID/REFUND INVENTORY REVERSAL ====================
+
+  // Reverse inventory for voided items
+  async reverseInventoryForVoid(orderId, itemId = null, quantity = null, userId) {
+    try {
+      let itemsToReverse = [];
+      
+      if (itemId) {
+        // Reverse inventory for specific item
+        const item = await this.db.get(
+          'SELECT * FROM order_items WHERE id = ?',
+          [itemId]
+        );
+        
+        if (!item) {
+          throw new Error('Order item not found');
+        }
+        
+        itemsToReverse.push({
+          product_id: item.product_id,
+          quantity: quantity || item.quantity,
+          item_id: itemId
+        });
+      } else {
+        // Reverse inventory for all items in order
+        const items = await this.db.all(
+          'SELECT * FROM order_items WHERE order_id = ? AND item_void_status = ?',
+          [orderId, 'ACTIVE']
+        );
+        
+        itemsToReverse = items.map(item => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+          item_id: item.id
+        }));
+      }
+      
+      // Process each item
+      for (const item of itemsToReverse) {
+        await this._reverseInventoryForProduct(item.product_id, item.quantity, userId, orderId, item.item_id);
+      }
+      
+      return { success: true, message: 'Inventory reversed successfully' };
+    } catch (error) {
+      console.error('Error reversing inventory:', error);
+      throw error;
+    }
+  }
+
+  // Reverse inventory for a specific product
+  async _reverseInventoryForProduct(productId, quantity, userId, orderId = null, orderItemId = null) {
+    try {
+      // Get current inventory
+      const inventory = await this.db.get(
+        'SELECT * FROM inventory WHERE product_id = ?',
+        [productId]
+      );
+      
+      if (!inventory) {
+        // Create inventory record if it doesn't exist
+        await this.db.run(
+          'INSERT INTO inventory (product_id, quantity) VALUES (?, ?)',
+          [productId, 0]
+        );
+        
+        // Get the newly created inventory
+        const newInventory = await this.db.get(
+          'SELECT * FROM inventory WHERE product_id = ?',
+          [productId]
+        );
+        
+        // Update with the reversed quantity
+        const newQuantity = newInventory.quantity + quantity;
+        await this.db.run(
+          'UPDATE inventory SET quantity = ? WHERE product_id = ?',
+          [newQuantity, productId]
+        );
+        
+        // Log transaction
+        await this.db.run(
+          `INSERT INTO inventory_transactions
+           (product_id, transaction_type, quantity, reason, created_by, order_id, order_item_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            productId,
+            'void',
+            quantity,
+            `Void/Refund - Order #${orderId || 'N/A'}`,
+            userId,
+            orderId || null,
+            orderItemId || null
+          ]
+        );
+        
+        return { success: true, newQuantity };
+      }
+      
+      // Update existing inventory
+      const newQuantity = inventory.quantity + quantity;
+      await this.db.run(
+        'UPDATE inventory SET quantity = ? WHERE product_id = ?',
+        [newQuantity, productId]
+      );
+      
+      // Log transaction
+      await this.db.run(
+        `INSERT INTO inventory_transactions
+         (product_id, transaction_type, quantity, reason, created_by, order_id, order_item_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?)`,
+        [
+          productId,
+          'void',
+          quantity,
+          `Void/Refund - Order #${orderId || 'N/A'}`,
+          userId,
+          orderId || null,
+          orderItemId || null
+        ]
+      );
+      
+      return { success: true, newQuantity };
+    } catch (error) {
+      console.error('Error reversing inventory for product:', error);
+      throw error;
+    }
+  }
+
+  // Reverse weight inventory for voided items
+  async reverseWeightInventoryForVoid(orderId, itemId = null, weightUsed = null, weightUnit = 'gram', userId) {
+    try {
+      if (itemId) {
+        // Get the order item
+        const item = await this.db.get(
+          'SELECT * FROM order_items WHERE id = ?',
+          [itemId]
+        );
+        
+        if (!item) {
+          throw new Error('Order item not found');
+        }
+        
+        // Reverse the weight
+        const result = await this.restockWeight(item.product_id, weightUsed || item.item_weight, weightUnit);
+        
+        // Log the void transaction
+        await this.db.run(
+          `INSERT INTO inventory_weight_logs
+           (menu_item_id, order_id, order_item_id, weight_used, weight_unit, current_stock, transaction_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            item.product_id,
+            orderId,
+            itemId,
+            weightUsed || item.item_weight,
+            weightUnit,
+            result.newWeight,
+            'void'
+          ]
+        );
+        
+        return result;
+      }
+      
+      // For full order void, reverse all weighted items
+      const items = await this.db.all(
+        'SELECT * FROM order_items WHERE order_id = ? AND item_weight > 0 AND item_void_status = ?',
+        [orderId, 'ACTIVE']
+      );
+      
+      for (const item of items) {
+        await this.restockWeight(item.product_id, item.item_weight, item.weight_unit || 'gram');
+        
+        await this.db.run(
+          `INSERT INTO inventory_weight_logs
+           (menu_item_id, order_id, order_item_id, weight_used, weight_unit, current_stock, transaction_type)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [
+            item.product_id,
+            orderId,
+            item.id,
+            item.item_weight,
+            item.weight_unit || 'gram',
+            result.newWeight,
+            'void'
+          ]
+        );
+      }
+      
+      return { success: true, message: 'Weight inventory reversed for all items' };
+    } catch (error) {
+      console.error('Error reversing weight inventory:', error);
+      throw error;
+    }
   }
 }
 

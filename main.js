@@ -1,14 +1,43 @@
 // Import required modules
-const { app, BrowserWindow, ipcMain, screen } = require('electron');
 const path = require('path');
+
+// Import Electron modules directly
+const { app, BrowserWindow, ipcMain, screen } = require('electron');
 
 console.log('Electron app:', !!app);
 console.log('Electron BrowserWindow:', !!BrowserWindow);
 console.log('Electron ipcMain:', !!ipcMain);
 console.log('Electron screen:', !!screen);
 
+// Check if Electron is available
+if (!app) {
+  console.error('Electron app is not available. Exiting...');
+  process.exit(1);
+}
+
 // Start Express server
 const { startServer } = require('./server.js');
+
+// Load feature managers
+const ModifierManager = require('./js/modifier-manager.js');
+const ComboManager = require('./js/combo-manager.js');
+const WeightManager = require('./js/weight-manager.js');
+const SplitBillManager = require('./js/split-bill-manager.js');
+const VoidRefundManager = require('./js/void-refund-manager.js');
+const KDSManager = require('./js/kds-manager.js');
+const HardwareManager = require('./js/hardware-manager.js');
+const DigitalReceiptManager = require('./js/digital-receipt-manager.js');
+const LoyaltyManager = require('./js/loyalty-manager.js');
+const OnlineOrderManager = require('./js/online-order-manager.js');
+const RecipeManager = require('./js/recipe-manager.js');
+const CashDrawerManager = require('./js/cash-drawer-manager.js');
+const CashReconciliationManager = require('./js/cash-reconciliation-manager.js');
+const BuzzerManager = require('./js/buzzer-manager.js');
+const TableManager = require('./js/table-manager.js');
+const OfflineManager = require('./js/offline-manager.js');
+const SyncManager = require('./js/sync-manager.js');
+const ReportingManager = require('./js/reporting-manager.js');
+const TaxEngine = require('./js/tax-engine.js');
 
 let mainWindow;
 let isLocked = false;

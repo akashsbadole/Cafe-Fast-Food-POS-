@@ -150,6 +150,54 @@ async function initDatabase() {
         console.log('Migration check: menu_items.stock_quantity');
     }
 
+    try {
+      await query(`ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS low_stock_threshold INTEGER DEFAULT 5`);
+    } catch (e) {
+        console.log('Migration check: menu_items.low_stock_threshold');
+    }
+
+    // Migration: Add role column to users table for legacy compatibility
+    try {
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'admin'`);
+    } catch (e) {
+      console.log('Migration check: users.role');
+    }
+
+    // Migration: Add role_id column to users table
+    try {
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS role_id INTEGER REFERENCES roles(id)`);
+    } catch (e) {
+      console.log('Migration check: users.role_id');
+    }
+
+    // Migration: Add email column to users table
+    try {
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT`);
+    } catch (e) {
+      console.log('Migration check: users.email');
+    }
+
+    // Migration: Add full_name column to users table
+    try {
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT`);
+    } catch (e) {
+      console.log('Migration check: users.full_name');
+    }
+
+    // Migration: Add preferences column to users table
+    try {
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS preferences JSONB DEFAULT '{}'`);
+    } catch (e) {
+      console.log('Migration check: users.preferences');
+    }
+
+    // Migration: Add is_active column to users table
+    try {
+      await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active INTEGER DEFAULT 1`);
+    } catch (e) {
+      console.log('Migration check: users.is_active');
+    }
+
     // Indices for performance
     await query(`CREATE INDEX IF NOT EXISTS IDX_menu_items_category ON menu_items(category_id)`);
     await query(`CREATE INDEX IF NOT EXISTS IDX_order_items_order ON order_items(order_id)`);
@@ -165,6 +213,18 @@ async function initDatabase() {
         phone TEXT UNIQUE NOT NULL,
         email TEXT,
         address TEXT,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+
+    await query(`
+      CREATE TABLE IF NOT EXISTS inventory_transactions (
+        id SERIAL PRIMARY KEY,
+        menu_item_id INTEGER NOT NULL REFERENCES menu_items(id),
+        transaction_type TEXT NOT NULL,
+        quantity INTEGER NOT NULL,
+        reason TEXT,
+        created_by INTEGER REFERENCES users(id),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -190,11 +250,18 @@ async function initDatabase() {
       CREATE TABLE IF NOT EXISTS settings (
         id SERIAL PRIMARY KEY,
         key TEXT UNIQUE NOT NULL,
-        value TEXT NOT NULL,
+        value TEXT,
         description TEXT,
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+
+    // Migration: Add description column if it doesn't exist
+    try {
+      await query(`ALTER TABLE settings ADD COLUMN IF NOT EXISTS description TEXT`);
+    } catch (e) {
+      console.log('Migration check: settings.description');
+    }
 
     // Seed default settings
     const defaultSettings = [
@@ -213,7 +280,7 @@ async function initDatabase() {
       await query(`
         INSERT INTO settings (key, value, description)
         VALUES ($1, $2, $3)
-        ON CONFLICT (key) DO NOTHING
+        ON CONFLICT (key) DO UPDATE SET value = $2, description = $3
       `, [key, value, desc]);
     }
 
@@ -361,14 +428,26 @@ const userOps = {
     // Join users -> roles -> permissions logic
     // For now, permissions are stored as JSONB in roles table
     const res = await query(`
-      SELECT r.permissions 
+      SELECT u.role, r.permissions 
       FROM users u
-      JOIN roles r ON u.role_id = r.id
+      LEFT JOIN roles r ON u.role_id = r.id
       WHERE u.id = $1
     `, [userId]);
     
-    if (res.rows.length > 0 && res.rows[0].permissions) {
-        return res.rows[0].permissions; // Returns array of strings e.g. ["manage_all"] or ["pos_access"]
+    if (res.rows.length > 0) {
+      const user = res.rows[0];
+      
+      // If role_id exists and has permissions, use those
+      if (user.permissions) {
+        return user.permissions; // Returns array of strings e.g. ["manage_all"] or ["pos_access"]
+      }
+      
+      // Fallback for legacy users without role_id: check role field
+      if (user.role === 'admin') {
+        return ['manage_all'];
+      } else if (user.role === 'cashier') {
+        return ['pos_access', 'view_orders'];
+      }
     }
     return [];
   },
@@ -381,6 +460,18 @@ const userOps = {
       }
       const res = await query(sql, params);
       return res.rows.length > 0;
+  },
+  getByPin: async (pin) => {
+    const bcrypt = require('bcryptjs');
+    // Fetch all active users
+    const res = await query('SELECT * FROM users WHERE is_active = 1');
+
+    for (const user of res.rows) {
+      if (user.pin_hash && bcrypt.compareSync(pin, user.pin_hash)) {
+        return user;
+      }
+    }
+    return null;
   }
 };
 
@@ -769,6 +860,60 @@ const taxOps = {
     }
 };
 
+const inventoryOps = {
+    updateStock: async (itemId, quantity, reason, userId) => {
+        // Update menu item stock
+        await query('UPDATE menu_items SET stock_quantity = stock_quantity + $1 WHERE id = $2', [quantity, itemId]);
+
+        // Record transaction
+        await query(`
+            INSERT INTO inventory_transactions (menu_item_id, transaction_type, quantity, reason, created_by)
+            VALUES ($1, $2, $3, $4, $5)
+        `, [itemId, quantity > 0 ? 'add' : 'remove', Math.abs(quantity), reason, userId]);
+
+        // Update availability based on stock
+        const itemRes = await query('SELECT stock_quantity FROM menu_items WHERE id = $1', [itemId]);
+        const item = itemRes.rows[0];
+        if (item && item.stock_quantity <= 0) {
+            await query('UPDATE menu_items SET is_available = 0 WHERE id = $1', [itemId]);
+        } else if (item && item.stock_quantity > 0) {
+            await query('UPDATE menu_items SET is_available = 1 WHERE id = $1', [itemId]);
+        }
+    },
+
+    getStockLevel: async (itemId) => {
+        const res = await query('SELECT stock_quantity FROM menu_items WHERE id = $1', [itemId]);
+        return res.rows[0] || null;
+    },
+
+    getLowStockItems: async () => {
+        const res = await query(`
+            SELECT m.*, c.name as category_name
+            FROM menu_items m
+            LEFT JOIN categories c ON m.category_id = c.id
+            WHERE m.stock_quantity <= m.low_stock_threshold AND m.is_available = 1
+            ORDER BY m.stock_quantity ASC
+        `);
+        return res.rows;
+    },
+
+    getTransactionHistory: async (itemId, limit = 50) => {
+        const res = await query(`
+            SELECT it.*, u.username as created_by_name
+            FROM inventory_transactions it
+            LEFT JOIN users u ON it.created_by = u.id
+            WHERE it.menu_item_id = $1
+            ORDER BY it.created_at DESC
+            LIMIT $2
+        `, [itemId, limit]);
+        return res.rows;
+    },
+
+    setLowStockThreshold: async (itemId, threshold) => {
+        await query('UPDATE menu_items SET low_stock_threshold = $1 WHERE id = $2', [threshold, itemId]);
+    }
+};
+
 // Old settingsOps, now replaced by settingOps
 /*
 const settingsOps = {
@@ -793,6 +938,7 @@ module.exports = {
   customerOps,
   settingOps,
   backupOps,
+  inventory: inventoryOps,
   roles: {
     getAll: async () => {
         const res = await query('SELECT * FROM roles ORDER BY name');
@@ -813,9 +959,9 @@ module.exports = {
     },
     set: async (code, key, value, context) => {
         await query(`
-            INSERT INTO translations (code, key, value, context, updated_at) 
-            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP) 
-            ON CONFLICT (code, key) 
+            INSERT INTO translations (code, key, value, context, updated_at)
+            VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+            ON CONFLICT (code, key)
             DO UPDATE SET value = $3, updated_at = CURRENT_TIMESTAMP
         `, [code, key, value, context]);
     }
@@ -824,12 +970,12 @@ module.exports = {
     getActive: async (location = null) => {
         let queryStr = 'SELECT * FROM tax_settings WHERE is_active = 1';
         let params = [];
-        
+
         if (location) {
             queryStr += ' AND (location = $1 OR location = \'default\')';
             params.push(location);
         }
-        
+
         const res = await query(queryStr, params);
         return res.rows;
     },
@@ -846,7 +992,7 @@ module.exports = {
     },
     update: async (id, data) => {
         await query(`
-            UPDATE tax_settings 
+            UPDATE tax_settings
             SET name = $1, rate = $2, type = $3, location = $4, apply_to_all = $5, specific_categories = $6, is_active = $7
             WHERE id = $8
         `, [data.name, data.rate, data.type, data.location || 'default', data.applyToAll, JSON.stringify(data.specificCategories), data.isActive ? 1 : 0, id]);
