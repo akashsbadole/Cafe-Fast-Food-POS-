@@ -3,17 +3,17 @@
 
 -- Create hardware_devices table
 CREATE TABLE IF NOT EXISTS hardware_devices (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     device_type TEXT NOT NULL CHECK (device_type IN ('escpos_printer', 'cfd_display', 'cash_drawer')),
     device_name TEXT NOT NULL,
     device_identifier TEXT UNIQUE,
     connection_type TEXT NOT NULL CHECK (connection_type IN ('usb', 'network', 'serial', 'bluetooth')),
     connection_string TEXT,
     status TEXT NOT NULL DEFAULT 'disconnected' CHECK (status IN ('connected', 'disconnected', 'error', 'maintenance')),
-    last_seen DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    is_active BOOLEAN DEFAULT 1,
+    last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT true,
     device_model TEXT,
     manufacturer TEXT,
     serial_number TEXT,
@@ -26,37 +26,37 @@ CREATE TABLE IF NOT EXISTS hardware_devices (
 
 -- Create hardware_device_configs table
 CREATE TABLE IF NOT EXISTS hardware_device_configs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     device_id INTEGER NOT NULL,
     config_key TEXT NOT NULL,
     config_value TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (device_id) REFERENCES hardware_devices (id) ON DELETE CASCADE
 );
 
 -- Create hardware_device_logs table
 CREATE TABLE IF NOT EXISTS hardware_device_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     device_id INTEGER,
     log_level TEXT NOT NULL CHECK (log_level IN ('info', 'warning', 'error', 'debug')),
     message TEXT NOT NULL,
     details TEXT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (device_id) REFERENCES hardware_devices (id) ON DELETE SET NULL
 );
 
 -- Create print_jobs table
 CREATE TABLE IF NOT EXISTS print_jobs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     device_id INTEGER NOT NULL,
     job_type TEXT NOT NULL CHECK (job_type IN ('receipt', 'kot', 'label', 'report')),
     status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'cancelled')),
     content TEXT,
     content_type TEXT DEFAULT 'text/plain',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    completed_at DATETIME,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
     retry_count INTEGER DEFAULT 0,
     error_message TEXT,
     FOREIGN KEY (device_id) REFERENCES hardware_devices (id) ON DELETE CASCADE
@@ -64,27 +64,27 @@ CREATE TABLE IF NOT EXISTS print_jobs (
 
 -- Create cfd_content table
 CREATE TABLE IF NOT EXISTS cfd_content (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     device_id INTEGER NOT NULL,
     content_type TEXT NOT NULL CHECK (content_type IN ('order_info', 'payment_info', 'loyalty', 'promotion', 'custom')),
     content_data TEXT NOT NULL,
-    is_active BOOLEAN DEFAULT 1,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    is_active BOOLEAN DEFAULT true,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (device_id) REFERENCES hardware_devices (id) ON DELETE CASCADE
 );
 
 -- Create hardware_device_status table
 CREATE TABLE IF NOT EXISTS hardware_device_status (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     device_id INTEGER NOT NULL,
     status TEXT NOT NULL,
     status_details TEXT,
     paper_level INTEGER,
     ink_level INTEGER,
     error_code TEXT,
-    last_ping DATETIME DEFAULT CURRENT_TIMESTAMP,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    last_ping TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (device_id) REFERENCES hardware_devices (id) ON DELETE CASCADE
 );
 

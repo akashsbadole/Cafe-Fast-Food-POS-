@@ -28,56 +28,74 @@ app.use(security.logActivity);
 app.use(security.addSecurityHeaders);
 app.use(security.helmet);
 app.use(security.generalLimiter);
-app.use(security.sanitizeInput);
-app.use(security.preventSQLInjection);
-app.use(security.preventXSS);
-app.use(security.requestSizeLimiter('10mb'));
 
 // Serve static files from the app directory
 app.use(express.static(path.join(__dirname)));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Apply body processing security middleware after JSON parsing
+app.use(security.sanitizeInput);
+app.use(security.preventSQLInjection);
+app.use(security.preventXSS);
+
 // RBAC Middleware with CASL
 const { defineAbilityFor } = require('./js/abilities');
 
 const checkPermission = (action, subject) => {
   return async (req, res, next) => {
+    console.log(`[DEBUG] checkPermission called for action: ${action}, subject: ${subject}, path: ${req.path}`);
     const authHeader = req.headers['authorization'];
     const token = authHeader && authHeader.split(' ')[1];
 
     if (!token) {
+      console.log(`[DEBUG] No token provided for ${req.path}`);
       return res.status(401).json({ error: 'Unauthorized: No token provided' });
     }
 
     jwt.verify(token, JWT_SECRET, (err, user) => {
-      if (err) return res.status(403).json({ error: 'Forbidden: Invalid token' });
+      if (err) {
+        console.log(`[DEBUG] Invalid token for ${req.path}:`, err.message);
+        console.log(`[DEBUG] Verifying with secret starting with: ${JWT_SECRET.substring(0, 4)}...`);
+        if (err.name === 'TokenExpiredError') {
+          console.log(`[DEBUG] Token expired at: ${new Date(err.expiredAt).toISOString()}`);
+        }
+        return res.status(403).json({ error: 'Forbidden: Invalid token', cause: err.message, secret_prefix: JWT_SECRET.substring(0, 4) });
+      }
+
+      console.log(`[DEBUG] User authenticated:`, { id: user.id, username: user.username, role: user.role, permissions: user.permissions });
 
       const ability = defineAbilityFor(user);
 
       // Check if user expects a specific permission string (Legacy support)
       // If 'action' is a string like 'manage_settings', we can map it or just check generic
       // But here we are moving to (action, subject) style usage.
-      // However, existing routes use checkPermission('manage_settings'). 
+      // However, existing routes use checkPermission('manage_settings').
       // We need to support that temporarily or update all routes.
       // Let's support both: if subject is undefined, assume action is a permission string check (Legacy)
 
       if (!subject) {
         // Legacy check: check if user has this permission in their list (or is admin)
-        if (ability.can('manage', 'all') || (user.permissions && user.permissions.includes(action))) {
+        const hasLegacyPermission = ability.can('manage', 'all') || (user.permissions && user.permissions.includes(action));
+        console.log(`[DEBUG] Legacy permission check for ${action}: hasPermission=${hasLegacyPermission}, canManageAll=${ability.can('manage', 'all')}, userPermissions=${user.permissions}`);
+        if (hasLegacyPermission) {
           req.user = user;
           req.ability = ability;
           return next();
         } else {
+          console.log(`[DEBUG] Forbidden: Missing permission ${action} for user ${user.username}`);
           return res.status(403).json({ error: `Forbidden: Missing permission ${action}` });
         }
       }
 
-      if (ability.can(action, subject)) {
+      const hasAbility = ability.can(action, subject);
+      console.log(`[DEBUG] CASL ability check for ${action} ${subject}: hasAbility=${hasAbility}`);
+      if (hasAbility) {
         req.user = user;
         req.ability = ability;
         next();
       } else {
+        console.log(`[DEBUG] Forbidden: Cannot ${action} ${subject} for user ${user.username}`);
         res.status(403).json({ error: `Forbidden: Cannot ${action} ${subject}` });
       }
     });
@@ -90,9 +108,29 @@ let db = null; // Will be initialized asynchronously
 async function startServer() {
   try {
     // Initialize database
-    const dbModule = require('./js/database.js');
-    await dbModule.initDatabase();
-    db = dbModule;
+    const dbType = process.env.DB_TYPE || 'postgres';
+    let database;
+
+    if (dbType === 'sqlite') {
+      console.log('Initializing SQLite database...');
+      database = require('./js/database.js');
+      await database.initDatabase();
+      console.log('SQLite database initialized successfully');
+    } else {
+      console.log('Attempting to initialize PostgreSQL database...');
+      try {
+        database = require('./js/database-postgres.js');
+        await database.initDatabase();
+        console.log('PostgreSQL database initialized successfully');
+      } catch (pgError) {
+        console.log('PostgreSQL not available, falling back to SQLite:', pgError.message);
+        database = require('./js/database.js');
+        await database.initDatabase();
+        console.log('SQLite database initialized successfully');
+      }
+    }
+
+    db = database;
 
     console.log('Database initialized successfully');
 
@@ -123,9 +161,140 @@ async function startServer() {
   }
 }
 
+// ================== INITIALIZE STOCK QUANTITIES ==================
+
+// Initialize stock quantities for existing menu items that don't have them
+app.post('/api/initialize-stock', checkPermission('manage_settings'), async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(500).json({ error: 'Database not initialized' });
+    }
+
+    // Get all menu items
+    const allItems = await db.menu.getAll();
+
+    // Update items that have null or 0 stock_quantity using direct database operations
+    let updatedCount = 0;
+    for (const item of allItems) {
+      if (item.stock_quantity === null || item.stock_quantity === undefined || item.stock_quantity === 0) {
+        // Directly update the stock_quantity in the database
+        try {
+          // Use the database's run method directly
+          const database = db.getDatabase ? db.getDatabase() : db;
+          database.run('UPDATE menu_items SET stock_quantity = 100, low_stock_threshold = 10 WHERE id = ?', [item.id]);
+
+          // Save the database if the method exists
+          if (typeof db.saveDatabase === 'function') {
+            db.saveDatabase();
+          }
+
+          updatedCount++;
+        } catch (dbError) {
+          console.error(`Error updating item ${item.id}:`, dbError);
+        }
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Stock quantities initialized for ${updatedCount} menu items`
+    });
+  } catch (error) {
+    console.error('Error initializing stock quantities:', error);
+    res.status(500).json({ error: 'Failed to initialize stock quantities' });
+  }
+});
+
+// ================== SUPPLIERS STUB ENDPOINT ==================
+
+// GET all suppliers (stub - returns empty array since no suppliers table exists)
+app.get('/api/suppliers', checkPermission('view_inventory'), async (req, res) => {
+  try {
+    // Return empty array since suppliers table doesn't exist in SQLite schema
+    res.json([]);
+  } catch (error) {
+    console.error('Error fetching suppliers:', error);
+    res.status(500).json({ error: 'Failed to fetch suppliers' });
+  }
+});
+
+// ================== INVENTORY STATS ENDPOINT ==================
+
+// GET inventory statistics
+app.get('/api/inventory/stats', async (req, res) => {
+  try {
+    if (!db) {
+      return res.status(500).json({ error: 'Database not initialized' });
+    }
+
+    // Get all menu items to calculate stats
+    const allItems = await db.menu.getAll();
+
+    // Filter items that have stock tracking (stock_quantity is not null)
+    const trackedItems = allItems.filter(item => item.stock_quantity !== null);
+
+    const totalItems = trackedItems.length;
+
+    // Get low stock items (items where stock <= low_stock_threshold)
+    const lowStockItems = trackedItems.filter(item =>
+      item.stock_quantity <= (item.low_stock_threshold || 5) && item.stock_quantity > 0
+    );
+    const lowStockCount = lowStockItems.length;
+
+    // Get out of stock items
+    const outOfStockItems = trackedItems.filter(item => item.stock_quantity === 0);
+    const outOfStockCount = outOfStockItems.length;
+
+    // Calculate total inventory value (using price as cost_price if cost_price not available)
+    const totalValue = trackedItems.reduce((sum, item) => {
+      const costPrice = item.cost_price || item.price || 0;
+      return sum + (item.stock_quantity * costPrice);
+    }, 0);
+
+    res.json({
+      totalItems,
+      lowStockCount,
+      outOfStockCount,
+      totalValue: parseFloat(totalValue.toFixed(2))
+    });
+  } catch (error) {
+    console.error('Error fetching inventory stats:', error);
+    res.status(500).json({ error: 'Failed to fetch inventory statistics' });
+  }
+});
+
+// ================== CASH DRAWER STUBS ==================
+app.get('/api/cash-drawer/session', (req, res) => {
+  res.json({ id: 1, status: 'open', opening_time: new Date(), opening_balance: 1000 });
+});
+
+app.get('/api/cash-drawer/history', (req, res) => {
+  res.json([
+    { id: 1, action: 'open', amount: 1000, timestamp: new Date() }
+  ]);
+});
+
+app.post('/api/cash-drawer/start', (req, res) => {
+  res.json({ success: true, message: 'Cash drawer session started' });
+});
+
+app.post('/api/cash-drawer/end', (req, res) => {
+  res.json({ success: true, message: 'Cash drawer session ended' });
+});
+
+app.post('/api/cash-drawer/reconcile', (req, res) => {
+  res.json({ success: true, message: 'Cash drawer reconciled' });
+});
+
+// ================== PING ENDPOINT ==================
+
+app.get('/api/ping', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
 // ================== SETTINGS ==================
 
-app.get('/api/settings', checkPermission('manage_settings'), async (req, res) => {
+app.get('/api/settings', checkPermission('view_settings'), async (req, res) => {
   try {
     const settings = await db.settingOps.getAll();
     res.json(settings);
@@ -142,7 +311,7 @@ app.put('/api/settings', checkPermission('manage_settings'), async (req, res) =>
     res.json({ success: true, message: 'Settings updated successfully' });
   } catch (error) {
     logger.error('Error updating settings:', error);
-    res.status(500).json({ error: 'Failed to update settings' });
+    res.status(500).json({ error: 'Failed to update settings', details: error.message });
   }
 });
 
@@ -201,6 +370,70 @@ app.use((err, req, res, next) => {
 // Start server is handled at the bottom via startServer()
 
 
+// Auth: Refresh Token
+app.post('/api/auth/refresh', async (req, res) => {
+  try {
+    // Extract token from Authorization header
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+
+    if (!token) {
+      return res.status(401).json({ error: 'No token provided for refresh' });
+    }
+
+    // Verify token - allow expired tokens for refresh
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET);
+    } catch (err) {
+      if (err.name === 'TokenExpiredError') {
+        // Token is expired, but we can still refresh it
+        decoded = jwt.decode(token);
+      } else {
+        console.log(`[DEBUG] Refresh failed: ${err.message}. Using secret: ${JWT_SECRET.substring(0, 4)}...`);
+        return res.status(403).json({ error: 'Invalid token for refresh', cause: err.message });
+      }
+    }
+
+    if (!decoded || !decoded.id) {
+      return res.status(403).json({ error: 'Invalid token payload' });
+    }
+
+    console.log(`[DEBUG] Token refresh requested for user: ${decoded.username} (${decoded.id}) at ${new Date().toISOString()}`);
+
+    // Verify user still exists and is active
+    const user = await db.user.getById(decoded.id);
+    if (!user || user.is_active === 0) {
+      return res.status(403).json({ error: 'User not found or inactive' });
+    }
+
+    // Update last login time
+    await db.user.updateLastLogin(decoded.id);
+
+    // Get user permissions
+    const permissions = await db.user.getPermissions(decoded.id);
+
+    // Issue new token
+    const newToken = jwt.sign(
+      { id: user.id, username: user.username, role: user.role, role_id: user.role_id, permissions },
+      JWT_SECRET,
+      { expiresIn: '12h' }
+    );
+
+    console.log(`[DEBUG] Token refresh successful for user: ${user.username}`);
+
+    return res.json({
+      success: true,
+      token: newToken,
+      user: { id: user.id, username: user.username, role: user.role, permissions }
+    });
+  } catch (err) {
+    console.log(`[DEBUG] Token refresh failed - ${err.message}`);
+    logger.error('Token refresh error:', err);
+    res.status(500).json({ error: 'Server error during token refresh' });
+  }
+});
+
 // Auth: Verify PIN
 app.post('/api/auth/verify-pin', async (req, res) => {
   if (!db) {
@@ -222,6 +455,9 @@ app.post('/api/auth/verify-pin', async (req, res) => {
         JWT_SECRET,
         { expiresIn: '12h' }
       );
+
+      console.log(`[DEBUG] Login successful. Signing token with secret starting with: ${JWT_SECRET.substring(0, 4)}...`);
+
 
       return res.json({
         success: true,
@@ -404,6 +640,52 @@ app.delete('/api/menu-items/:id', async (req, res) => {
   }
 });
 
+// POST adjust stock for menu item
+app.post('/api/menu-items/:id/adjust-stock', checkPermission('manage_settings'), async (req, res) => {
+  try {
+    const { type, quantity, reason } = req.body;
+    const itemId = req.params.id;
+
+    if (!type || !quantity || !reason) {
+      return res.status(400).json({ error: 'Type, quantity, and reason are required' });
+    }
+
+    if (!['add', 'remove', 'set'].includes(type)) {
+      return res.status(400).json({ error: 'Type must be add, remove, or set' });
+    }
+
+    // Get current stock
+    const item = await db.menu.getById(itemId);
+    if (!item) {
+      return res.status(404).json({ error: 'Menu item not found' });
+    }
+
+    let newStock = item.stock_quantity || 0;
+
+    if (type === 'add') {
+      newStock += parseInt(quantity);
+    } else if (type === 'remove') {
+      newStock -= parseInt(quantity);
+      if (newStock < 0) newStock = 0;
+    } else if (type === 'set') {
+      newStock = parseInt(quantity);
+    }
+
+    // Update stock
+    await db.inventory.updateStock(itemId, newStock - (item.stock_quantity || 0), reason, req.user?.id || 1);
+
+    res.json({
+      success: true,
+      message: 'Stock adjusted successfully',
+      previousStock: item.stock_quantity || 0,
+      newStock: newStock
+    });
+  } catch (error) {
+    console.error('Error adjusting stock:', error);
+    res.status(500).json({ error: 'Failed to adjust stock' });
+  }
+});
+
 // ================== ORDERS ROUTES ==================
 
 // GET all orders
@@ -450,7 +732,25 @@ app.get('/api/orders/:id', async (req, res) => {
 // POST new order
 app.post('/api/orders', async (req, res) => {
   try {
-    const { items, subtotal, discountAmount, discountType, taxAmount, totalAmount, paymentMode, paymentStatus, notes } = req.body;
+    const { 
+      items, 
+      customerId, 
+      customer_id,
+      subtotal, 
+      discountAmount, 
+      discount_amount,
+      discountType, 
+      discount_type,
+      taxAmount, 
+      tax_amount,
+      totalAmount, 
+      total_amount,
+      paymentMode, 
+      payment_mode,
+      paymentStatus, 
+      payment_status,
+      notes 
+    } = req.body;
 
     if (!items || items.length === 0) {
       return res.status(400).json({ error: 'Order must have at least one item' });
@@ -459,16 +759,17 @@ app.post('/api/orders', async (req, res) => {
     const orderNumber = await db.order.generateOrderNumber();
 
     const orderId = await db.order.create({
-      orderNumber,
+      orderNumber: req.body.order_number || orderNumber,
+      customerId: customer_id || customerId,
       subtotal,
-      discountAmount,
-      discountType,
-      taxAmount,
-      totalAmount,
-      paymentMode,
-      paymentStatus,
+      discountAmount: discount_amount !== undefined ? discount_amount : discountAmount,
+      discountType: discount_type || discountType,
+      taxAmount: tax_amount !== undefined ? tax_amount : taxAmount,
+      totalAmount: total_amount !== undefined ? total_amount : totalAmount,
+      paymentMode: payment_mode || paymentMode,
+      paymentStatus: payment_status || paymentStatus,
       notes,
-      status: paymentStatus === 'paid' ? 'completed' : 'pending'
+      status: (payment_status || paymentStatus) === 'paid' ? 'completed' : 'pending'
     });
 
     // Add order items
@@ -721,6 +1022,32 @@ app.get('/api/reports/top-items', checkPermission('manage_settings'), async (req
 
 // ================== CUSTOMER ROUTES ==================
 
+// GET all customers
+app.get('/api/customers', checkPermission('view_customers'), async (req, res) => {
+  try {
+    const customers = await db.customer.getAll();
+    res.json(customers);
+  } catch (error) {
+    console.error('Error fetching customers:', error);
+    res.status(500).json({ error: 'Failed to fetch customers' });
+  }
+});
+
+// GET customer by ID
+app.get('/api/customers/:id', checkPermission('view_customers'), async (req, res) => {
+  try {
+    const customer = await db.customer.getById(req.params.id);
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+    res.json(customer);
+  } catch (error) {
+    console.error('Error fetching customer:', error);
+    res.status(500).json({ error: 'Failed to fetch customer' });
+  }
+});
+
+// GET customer search
 app.get('/api/customers/search', async (req, res) => {
   try {
     const { q } = req.query;
@@ -733,23 +1060,76 @@ app.get('/api/customers/search', async (req, res) => {
   }
 });
 
-app.post('/api/customers', async (req, res) => {
+// POST create customer
+app.post('/api/customers', checkPermission('manage_customers'), async (req, res) => {
   try {
-    const { name, phone } = req.body;
-    if (!phone) return res.status(400).json({ error: 'Phone number is required' });
+    const { name, phone, email, notes } = req.body;
 
-    try {
-      const customer = await db.customer.create(name, phone);
-      res.json(customer);
-    } catch (err) {
-      if (err.code === '23505') { // Unique violation
-        return res.status(409).json({ error: 'Customer with this phone already exists' });
-      }
-      throw err;
+    // Validation
+    if (!name || !phone) {
+      return res.status(400).json({ error: 'Name and phone are required' });
     }
+
+    // Check if phone already exists
+    const existing = await db.customer.getByPhone(phone);
+    if (existing) {
+      return res.status(409).json({ error: 'Customer with this phone number already exists' });
+    }
+
+    const id = await db.customer.create(name, phone, email, notes);
+    const customer = await db.customer.getById(id);
+    res.status(201).json(customer);
   } catch (error) {
     console.error('Error creating customer:', error);
     res.status(500).json({ error: 'Failed to create customer' });
+  }
+});
+
+// PUT update customer
+app.put('/api/customers/:id', checkPermission('manage_customers'), async (req, res) => {
+  try {
+    const { name, phone, email, notes } = req.body;
+    const customerId = req.params.id;
+
+    // Check if customer exists
+    const existing = await db.customer.getById(customerId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // Check if phone is being changed and if it already exists
+    if (phone && phone !== existing.phone) {
+      const phoneExists = await db.customer.getByPhone(phone);
+      if (phoneExists) {
+        return res.status(409).json({ error: 'Phone number already exists' });
+      }
+    }
+
+    await db.customer.update(customerId, name, phone, email, notes);
+    const customer = await db.customer.getById(customerId);
+    res.json(customer);
+  } catch (error) {
+    console.error('Error updating customer:', error);
+    res.status(500).json({ error: 'Failed to update customer' });
+  }
+});
+
+// DELETE customer
+app.delete('/api/customers/:id', checkPermission('manage_customers'), async (req, res) => {
+  try {
+    const customerId = req.params.id;
+
+    // Check if customer exists
+    const existing = await db.customer.getById(customerId);
+    if (!existing) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    await db.customer.delete(customerId);
+    res.json({ success: true, message: 'Customer deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting customer:', error);
+    res.status(500).json({ error: 'Failed to delete customer' });
   }
 });
 
@@ -1038,6 +1418,50 @@ async function startServer() {
 
     db = database;
 
+    // Initialize Inventory Manager
+    const InventoryManager = require('./js/inventory-manager');
+    const inventoryManager = new InventoryManager(db);
+    await inventoryManager.init();
+    db.inventoryManager = inventoryManager;
+
+    // Initialize ReportingManager after database is ready
+    let databaseInstance;
+
+    // Check if db has getDatabase method (SQLite wrapper) or is direct connection (PostgreSQL)
+    if (typeof db.getDatabase === 'function') {
+      databaseInstance = db.getDatabase();
+    } else {
+      // For PostgreSQL, db is already the database connection
+      databaseInstance = db;
+    }
+
+    if (!databaseInstance) {
+      throw new Error('Database instance not available for ReportingManager initialization');
+    }
+
+    const ReportingManager = require('./js/reporting-manager');
+    const reportingManager = new ReportingManager(databaseInstance, logger);
+    await reportingManager.init();
+    console.log('ReportingManager initialized successfully');
+
+    // Initialize WhatsAppService with database dependency
+    const { WhatsAppService } = require('./js/whatsapp-service');
+    const whatsAppService = new WhatsAppService(db, null); // Will be updated after DigitalReceiptManager
+
+    // Initialize EmailService with database dependency
+    const { EmailService } = require('./js/email-service');
+    const emailService = new EmailService(db, null); // Will be updated after DigitalReceiptManager
+
+    // Initialize DigitalReceiptManager with database dependency
+    const { DigitalReceiptManager } = require('./js/digital-receipt-manager');
+    const digitalReceiptManager = new DigitalReceiptManager(db);
+
+    // Update services with DigitalReceiptManager
+    emailService.digitalReceiptManager = digitalReceiptManager;
+    whatsAppService.digitalReceiptManager = digitalReceiptManager;
+
+    console.log('DigitalReceiptManager initialized successfully');
+
     // Add MVP endpoints
     const mvpEndpoints = require('./js/mvp-endpoints.js');
     mvpEndpoints.addUserManagementEndpoints(app, db, checkPermission);
@@ -1047,8 +1471,8 @@ async function startServer() {
     mvpEndpoints.addReportingEndpoints(app, db, checkPermission);
     mvpEndpoints.addBackupEndpoints(app, db, checkPermission);
 
-    // Add enterprise endpoints
-    const enterpriseEndpoints = require('./js/enterprise-endpoints.js');
+    // Add enterprise endpoints with ReportingManager
+    const enterpriseEndpoints = require('./js/enterprise-endpoints.js')(reportingManager);
     app.use(enterpriseEndpoints);
 
     // Add modifier endpoints
@@ -1110,6 +1534,10 @@ async function startServer() {
     // Add offline/sync endpoints
     const offlineEndpoints = require('./js/offline-endpoints.js');
     app.use(offlineEndpoints);
+
+    // Add enhanced inventory endpoints
+    const inventoryEndpoints = require('./js/inventory-endpoints.js');
+    app.use('/api', inventoryEndpoints);
 
     console.log('All endpoints added successfully');
 

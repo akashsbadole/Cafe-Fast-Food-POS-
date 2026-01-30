@@ -27,17 +27,36 @@ if (dbType === 'sqlite') {
 // PostgreSQL configuration (cloud option)
 else if (dbType === 'postgres') {
   const { Pool } = require('pg');
-  
-  const pool = new Pool({
-    host: process.env.DB_HOST || 'localhost',
-    port: process.env.DB_PORT || 5432,
-    database: process.env.DB_NAME || 'cafe_pos',
-    user: process.env.DB_USER || 'postgres',
-    password: process.env.DB_PASSWORD || 'password',
-    max: 20,
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 2000,
-  });
+
+  const databaseUrl = process.env.DATABASE_URL;
+
+  let poolConfig;
+  if (databaseUrl) {
+    poolConfig = {
+      connectionString: databaseUrl,
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    };
+
+    // Log SSL configuration for debugging
+    const url = new URL(databaseUrl);
+    const sslMode = url.searchParams.get('sslmode');
+    console.log(`PostgreSQL SSL mode configured: ${sslMode || 'default'}`);
+  } else {
+    poolConfig = {
+      host: process.env.DB_HOST || 'localhost',
+      port: process.env.DB_PORT || 5432,
+      database: process.env.DB_NAME || 'cafe_pos',
+      user: process.env.DB_USER || 'postgres',
+      password: process.env.DB_PASSWORD || 'password',
+      max: 20,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 2000,
+    };
+  }
+
+  const pool = new Pool(poolConfig);
   
   // Create a wrapper to make pg behave like better-sqlite3
   db = {

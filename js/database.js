@@ -99,7 +99,7 @@ async function initDatabase() {
       description TEXT,
       price REAL NOT NULL,
       image TEXT,
-      stock_quantity INTEGER DEFAULT 0,
+      stock_quantity INTEGER DEFAULT NULL,
       low_stock_threshold INTEGER DEFAULT 5,
       is_available INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -204,8 +204,17 @@ async function initDatabase() {
     )
   `);
 
+  // Add description column to settings table if it doesn't exist
+  const settingsInfo = db.exec('PRAGMA table_info(settings)');
+  const settingsColumns = resultToObjects(settingsInfo).map(row => row.name);
+  if (!settingsColumns.includes('description')) {
+    db.run('ALTER TABLE settings ADD COLUMN description TEXT');
+  }
+  if (!settingsColumns.includes('updated_at')) {
+    db.run('ALTER TABLE settings ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP');
+  }
+
   // Create default admin user if not exists
-  const bcrypt = require('bcryptjs');
   const defaultPin = '1234';
   const defaultPassword = 'admin123';
 
@@ -214,10 +223,10 @@ async function initDatabase() {
     const pinHash = bcrypt.hashSync(defaultPin, 10);
     const passwordHash = bcrypt.hashSync(defaultPassword, 10);
 
-    db.run(`INSERT OR IGNORE INTO users (username, password_hash, pin_hash, role) VALUES (?, ?, ?, 'admin')`,
-      ['admin', passwordHash, pinHash]);
+    db.run(`INSERT OR IGNORE INTO users (username, password_hash, pin_hash, role, permissions) VALUES (?, ?, ?, 'admin', ?)`,
+      ['admin', passwordHash, pinHash, JSON.stringify(['manage_all', 'manage_settings', 'manage_users', 'manage_customers', 'manage_inventory', 'view_reports'])]);
 
-    console.log('Default admin user created (PIN: 1234)');
+    console.log('Default admin user created (PIN: 1234) with full permissions');
   }
 
   // Create default categories if not exists
@@ -366,6 +375,289 @@ async function initDatabase() {
     )
   `);
 
+  // Create KDS tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS kds_stations (
+      station_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL UNIQUE,
+      display_name TEXT,
+      description TEXT,
+      position INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS kds_orders (
+      kds_order_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL,
+      table_id INTEGER,
+      customer_name TEXT,
+      order_type TEXT DEFAULT 'dine-in',
+      status TEXT DEFAULT 'received',
+      priority INTEGER DEFAULT 0,
+      estimated_prep_time INTEGER,
+      notes TEXT,
+      kds_created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      kds_completed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders (id),
+      FOREIGN KEY (table_id) REFERENCES tables (id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS kds_order_items (
+      kds_item_id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kds_order_id INTEGER NOT NULL,
+      order_item_id INTEGER NOT NULL,
+      station_id INTEGER,
+      menu_item_name TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      status TEXT DEFAULT 'received',
+      notes TEXT,
+      estimated_prep_time INTEGER,
+      started_at DATETIME,
+      completed_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (kds_order_id) REFERENCES kds_orders (kds_order_id),
+      FOREIGN KEY (station_id) REFERENCES kds_stations (station_id),
+      FOREIGN KEY (order_item_id) REFERENCES order_items (id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS kds_status_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kds_order_id INTEGER,
+      kds_item_id INTEGER,
+      old_status TEXT,
+      new_status TEXT,
+      changed_by TEXT,
+      change_reason TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (kds_order_id) REFERENCES kds_orders (kds_order_id),
+      FOREIGN KEY (kds_item_id) REFERENCES kds_order_items (kds_item_id)
+    )
+  `);
+
+  // Create tables table for table management
+  db.run(`
+    CREATE TABLE IF NOT EXISTS tables (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      table_number TEXT NOT NULL,
+      name TEXT,
+      capacity INTEGER DEFAULT 4,
+      status TEXT DEFAULT 'available',
+      location_id INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create system_settings table for service configurations
+  db.run(`
+    CREATE TABLE IF NOT EXISTS system_settings (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      key TEXT UNIQUE NOT NULL,
+      value TEXT,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create digital receipt tables
+  db.run(`
+    CREATE TABLE IF NOT EXISTS digital_receipt_templates (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT,
+      template_type TEXT DEFAULT 'email',
+      subject_template TEXT,
+      body_template TEXT,
+      html_template TEXT,
+      is_default INTEGER DEFAULT 0,
+      is_active INTEGER DEFAULT 1,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS customer_communication_preferences (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      customer_id INTEGER NOT NULL,
+      email TEXT,
+      phone TEXT,
+      whatsapp_enabled INTEGER DEFAULT 0,
+      email_enabled INTEGER DEFAULT 1,
+      sms_enabled INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (customer_id) REFERENCES customers (id)
+    )
+  `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS digital_receipt_history (
+      id TEXT PRIMARY KEY,
+      order_id INTEGER NOT NULL,
+      customer_id INTEGER,
+      template_id INTEGER,
+      receipt_type TEXT NOT NULL,
+      status TEXT DEFAULT 'pending',
+      message_id TEXT,
+      external_id TEXT,
+      error_message TEXT,
+      retry_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (order_id) REFERENCES orders (id),
+      FOREIGN KEY (customer_id) REFERENCES customers (id),
+      FOREIGN KEY (template_id) REFERENCES digital_receipt_templates (id)
+    )
+  `);
+
+  // Create indexes for better performance
+  db.run(`CREATE INDEX IF NOT EXISTS idx_kds_orders_status ON kds_orders (status)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_kds_orders_order_id ON kds_orders (order_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_kds_order_items_status ON kds_order_items (status)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_kds_order_items_station ON kds_order_items (station_id, status)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_tables_status ON tables (status)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_tables_location ON tables (location_id)`);
+
+  // =================== INVENTORY MANAGEMENT TABLES ===================
+  // Create inventory categories table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS inventory_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create inventory suppliers table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS inventory_suppliers (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT UNIQUE NOT NULL,
+      contact_person TEXT,
+      phone TEXT,
+      email TEXT,
+      address TEXT,
+      notes TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create inventory items table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS inventory_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      category_id INTEGER NOT NULL,
+      stock_quantity INTEGER DEFAULT 0,
+      low_stock_threshold INTEGER DEFAULT 5,
+      cost_price REAL DEFAULT 0,
+      selling_price REAL DEFAULT 0,
+      unit TEXT DEFAULT 'piece',
+      supplier_id INTEGER,
+      description TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create inventory adjustments table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS inventory_adjustments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id INTEGER NOT NULL,
+      type TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      reason TEXT,
+      previous_quantity INTEGER NOT NULL,
+      new_quantity INTEGER NOT NULL,
+      adjusted_by INTEGER,
+      adjusted_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create inventory logs table
+  db.run(`
+    CREATE TABLE IF NOT EXISTS inventory_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id INTEGER,
+      action TEXT NOT NULL,
+      description TEXT NOT NULL,
+      user_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // Create indexes for inventory tables
+  db.run(`CREATE INDEX IF NOT EXISTS idx_inventory_items_category ON inventory_items (category_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_inventory_items_supplier ON inventory_items (supplier_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_inventory_items_stock ON inventory_items (stock_quantity, low_stock_threshold)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_inventory_adjustments_item ON inventory_adjustments (item_id)`);
+  db.run(`CREATE INDEX IF NOT EXISTS idx_inventory_logs_item ON inventory_logs (item_id)`);
+
+  // Insert default inventory categories if none exist
+  const existingInvCategories = db.exec('SELECT COUNT(*) as count FROM inventory_categories');
+  let invCategoryCount = 0;
+  if (existingInvCategories.length > 0) {
+    invCategoryCount = existingInvCategories[0].values[0][0];
+  }
+
+  if (invCategoryCount === 0) {
+    const invCategories = [
+      { name: 'Coffee & Beverages', description: 'Coffee, tea, and other beverages' },
+      { name: 'Food Items', description: 'Snacks, meals, and food products' },
+      { name: 'Packaging', description: 'Cups, lids, bags, and packaging materials' },
+      { name: 'Cleaning Supplies', description: 'Cleaning and sanitization products' },
+      { name: 'Office Supplies', description: 'Paper, pens, and office materials' },
+      { name: 'Equipment Parts', description: 'Machine parts and equipment components' }
+    ];
+
+    invCategories.forEach(cat => {
+      db.run(`INSERT INTO inventory_categories (name, description) VALUES (?, ?)`,
+        [cat.name, cat.description]);
+    });
+
+    console.log('Default inventory categories created');
+  }
+
+  // Insert default inventory suppliers if none exist
+  const existingInvSuppliers = db.exec('SELECT COUNT(*) as count FROM inventory_suppliers');
+  let invSupplierCount = 0;
+  if (existingInvSuppliers.length > 0) {
+    invSupplierCount = existingInvSuppliers[0].values[0][0];
+  }
+
+  if (invSupplierCount === 0) {
+    const invSuppliers = [
+      { name: 'Coffee Bean Co.', contact_person: 'John Smith', phone: '+1234567890', email: 'john@coffeebean.com', address: '123 Coffee St, Coffee City', notes: 'Primary coffee supplier' },
+      { name: 'Bakery Supplies Ltd.', contact_person: 'Sarah Johnson', phone: '+1234567891', email: 'sarah@bakery.com', address: '456 Bakery Rd, Food Town', notes: 'Pastries and baked goods' },
+      { name: 'Packaging Plus', contact_person: 'Mike Wilson', phone: '+1234567892', email: 'mike@packaging.com', address: '789 Package Ave, Box City', notes: 'Packaging materials' },
+      { name: 'Clean Solutions', contact_person: 'Lisa Brown', phone: '+1234567893', email: 'lisa@cleansol.com', address: '321 Clean St, Sanitize Town', notes: 'Cleaning supplies' }
+    ];
+
+    invSuppliers.forEach(sup => {
+      db.run(`INSERT INTO inventory_suppliers (name, contact_person, phone, email, address, notes) VALUES (?, ?, ?, ?, ?, ?)`,
+        [sup.name, sup.contact_person, sup.phone, sup.email, sup.address, sup.notes]);
+    });
+
+    console.log('Default inventory suppliers created');
+  }
+
   // Add location_id to existing tables
   const ordersInfo = db.exec('PRAGMA table_info(orders)');
   const ordersColumns = resultToObjects(ordersInfo).map(row => row.name);
@@ -472,6 +764,56 @@ async function initDatabase() {
     console.log('Sample menu items created');
   }
 
+  // Create sample KDS stations if not exists
+  const existingStations = db.exec('SELECT COUNT(*) as count FROM kds_stations');
+  let stationCount = 0;
+  if (existingStations.length > 0) {
+    stationCount = existingStations[0].values[0][0];
+  }
+
+  if (stationCount === 0) {
+    const stations = [
+      { name: 'grill', display_name: 'Grill Station', description: 'Hot food preparation', position: 1 },
+      { name: 'cold', display_name: 'Cold Station', description: 'Cold beverages and desserts', position: 2 },
+      { name: 'bar', display_name: 'Bar Station', description: 'Coffee and hot beverages', position: 3 },
+      { name: 'fry', display_name: 'Fry Station', description: 'Fried items', position: 4 }
+    ];
+
+    stations.forEach(station => {
+      db.run(`INSERT INTO kds_stations (name, display_name, description, position) VALUES (?, ?, ?, ?)`,
+        [station.name, station.display_name, station.description, station.position]);
+    });
+
+    console.log('Sample KDS stations created');
+  }
+
+  // Create sample tables if not exists
+  const existingTables = db.exec('SELECT COUNT(*) as count FROM tables');
+  let tableCount = 0;
+  if (existingTables.length > 0) {
+    tableCount = existingTables[0].values[0][0];
+  }
+
+  if (tableCount === 0) {
+    const tables = [
+      { table_number: 'T01', name: 'Table 1', capacity: 2, status: 'available' },
+      { table_number: 'T02', name: 'Table 2', capacity: 4, status: 'available' },
+      { table_number: 'T03', name: 'Table 3', capacity: 4, status: 'available' },
+      { table_number: 'T04', name: 'Table 4', capacity: 6, status: 'available' },
+      { table_number: 'T05', name: 'Table 5', capacity: 2, status: 'available' },
+      { table_number: 'T06', name: 'Table 6', capacity: 4, status: 'available' },
+      { table_number: 'T07', name: 'Table 7', capacity: 8, status: 'available' },
+      { table_number: 'T08', name: 'Table 8', capacity: 4, status: 'available' }
+    ];
+
+    tables.forEach(table => {
+      db.run(`INSERT INTO tables (table_number, name, capacity, status, location_id) VALUES (?, ?, ?, ?, ?)`,
+        [table.table_number, table.name, table.capacity, table.status, 1]);
+    });
+
+    console.log('Sample tables created');
+  }
+
   // Seed default data (roles, users, etc.)
   seedDefaultData();
 
@@ -481,9 +823,14 @@ async function initDatabase() {
 // Save database to file
 function saveDatabase() {
   if (db) {
-    const data = db.export();
-    const buffer = Buffer.from(data);
-    fs.writeFileSync(dbPath, buffer);
+    try {
+      const data = db.export();
+      const buffer = Buffer.from(data);
+      fs.writeFileSync(dbPath, buffer);
+    } catch (err) {
+      console.error('FAILED TO SAVE DATABASE:', err);
+      throw err; // Re-throw to propagate to caller
+    }
   }
 }
 
@@ -520,15 +867,254 @@ const userOps = {
   },
 
   getByPin: (pin) => {
-    const result = db.exec('SELECT * FROM users');
+    const result = db.exec('SELECT * FROM users WHERE is_active = 1');
     const users = resultToObjects(result);
-    
     for (const user of users) {
       if (user.pin_hash && bcrypt.compareSync(pin, user.pin_hash)) {
         return user;
       }
     }
     return null;
+  },
+
+  getById: (id) => {
+    const result = db.exec(`
+      SELECT u.*, r.name as role_name, r.permissions as role_permissions
+      FROM users u 
+      LEFT JOIN roles r ON u.role_id = r.id 
+      WHERE u.id = ? AND u.is_active = 1
+    `, [id]);
+    const users = resultToObjects(result);
+    return users[0] || null;
+  },
+
+  create: (userData) => {
+    const { username, pin_hash, password_hash, role_id, full_name, permissions } = userData;
+    db.run(`
+      INSERT INTO users (username, pin_hash, password_hash, role_id, full_name, permissions)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `, [username, pin_hash, password_hash, role_id, full_name, JSON.stringify(permissions || [])]);
+    const result = db.exec('SELECT last_insert_rowid() as id');
+    saveDatabase();
+    return result[0].values[0][0];
+  },
+
+  update: (id, updates) => {
+    const fields = [];
+    const values = [];
+    Object.keys(updates).forEach(key => {
+      if (updates[key] !== undefined) {
+        fields.push(`${key} = ?`);
+        values.push(key === 'permissions' ? JSON.stringify(updates[key]) : updates[key]);
+      }
+    });
+    if (fields.length === 0) return;
+    values.push(id);
+    db.run(`UPDATE users SET ${fields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = ?`, values);
+    saveDatabase();
+    return true;
+  },
+
+  delete: (id) => {
+    db.run('UPDATE users SET is_active = 0 WHERE id = ?', [id]);
+    saveDatabase();
+    return true;
+  },
+
+  getPermissions: (userId) => {
+    const result = db.exec(`
+      SELECT u.permissions, r.permissions as role_permissions
+      FROM users u 
+      LEFT JOIN roles r ON u.role_id = r.id 
+      WHERE u.id = ?
+    `, [userId]);
+    const user = resultToObjects(result)[0];
+    if (!user) return [];
+    const userPerms = JSON.parse(user.permissions || '[]');
+    const rolePerms = JSON.parse(user.role_permissions || '[]');
+    return [...new Set([...userPerms, ...rolePerms])];
+  }
+};
+
+// Role operations
+const roleOps = {
+  getAll: () => {
+    const result = db.exec('SELECT * FROM roles WHERE is_active = 1 ORDER BY name');
+    return resultToObjects(result);
+  },
+
+  getById: (id) => {
+    const result = db.exec('SELECT * FROM roles WHERE id = ? AND is_active = 1', [id]);
+    const roles = resultToObjects(result);
+    return roles[0] || null;
+  },
+
+  create: (name, description, permissions) => {
+    db.run(`
+      INSERT INTO roles (name, description, permissions)
+      VALUES (?, ?, ?)
+    `, [name, description, JSON.stringify(permissions || [])]);
+    const result = db.exec('SELECT last_insert_rowid() as id');
+    saveDatabase();
+    return result[0].values[0][0];
+  },
+
+  update: (id, name, description, permissions) => {
+    db.run(`
+      UPDATE roles SET name = ?, description = ?, permissions = ?
+      WHERE id = ?
+    `, [name, description, JSON.stringify(permissions), id]);
+    saveDatabase();
+    return true;
+  },
+
+  delete: (id) => {
+    db.run('UPDATE roles SET is_active = 0 WHERE id = ?', [id]);
+    saveDatabase();
+    return true;
+  }
+};
+
+// Customer operations
+const customerOps = {
+  getAll: () => {
+    try {
+      const stmt = db.prepare("SELECT * FROM customers ORDER BY name ASC");
+      const customers = [];
+      while (stmt.step()) {
+        customers.push(stmt.getAsObject());
+      }
+      stmt.free();
+      return customers;
+    } catch (error) {
+      console.error('Error getting all customers:', error);
+      return [];
+    }
+  },
+
+  search: (q) => {
+    try {
+      const stmt = db.prepare("SELECT * FROM customers WHERE name LIKE $q OR phone LIKE $q ORDER BY name ASC");
+      stmt.bind({ $q: `%${q}%` });
+      const customers = [];
+      while (stmt.step()) {
+        customers.push(stmt.getAsObject());
+      }
+      stmt.free();
+      return customers;
+    } catch (error) {
+      console.error('Error searching customers:', error);
+      return [];
+    }
+  },
+
+  create: (name, phone, email, notes) => {
+    try {
+      // Check if phone exists
+      const existing = db.exec("SELECT id FROM customers WHERE phone = ?", [phone]);
+      if (existing.length > 0 && existing[0].values.length > 0) {
+        throw new Error('Customer with this phone already exists');
+      }
+
+      db.run("INSERT INTO customers (name, phone, email, notes, created_at) VALUES (?, ?, ?, ?, ?)", [name, phone, email || null, notes || null, new Date().toISOString()]);
+      saveDatabase();
+      const result = db.exec("SELECT last_insert_rowid() as id");
+      const id = result[0].values[0][0];
+      
+      const stmt = db.prepare("SELECT * FROM customers WHERE id = ?");
+      stmt.bind([id]);
+      let customer = null;
+      if (stmt.step()) {
+        customer = stmt.getAsObject();
+      }
+      stmt.free();
+      
+      // Ensure we always return a valid customer object with at least name and phone
+      if (!customer) {
+        customer = {
+          id: id,
+          name: name,
+          phone: phone,
+          email: email || null,
+          notes: notes || null,
+          created_at: new Date().toISOString()
+        };
+      }
+      
+      return customer;
+    } catch (error) {
+      console.error('Error creating customer:', error);
+      throw error;
+    }
+  },
+
+  getById: (id) => {
+    try {
+      const result = db.exec("SELECT * FROM customers WHERE id = ?", [id]);
+      const customers = resultToObjects(result);
+      return customers[0] || null;
+    } catch (error) {
+      console.error('Error getting customer by ID:', error);
+      return null;
+    }
+  },
+
+  getByPhone: (phone) => {
+    try {
+      const stmt = db.prepare("SELECT * FROM customers WHERE phone = ?");
+      stmt.bind([phone]);
+      let customer = null;
+      if (stmt.step()) {
+        customer = stmt.getAsObject();
+      }
+      stmt.free();
+      return customer;
+    } catch (error) {
+      console.error('Error getting customer by phone:', error);
+      return null;
+    }
+  },
+
+  update: (id, data) => {
+    try {
+      const { name, phone, email, notes } = data;
+      db.run(
+        "UPDATE customers SET name = ?, phone = ?, email = ?, notes = ?, updated_at = ? WHERE id = ?",
+        [name, phone, email, notes, new Date().toISOString(), id]
+      );
+      saveDatabase();
+      return true;
+    } catch (error) {
+      console.error('Error updating customer:', error);
+      throw error;
+    }
+  },
+
+  delete: (id) => {
+    try {
+      db.run("DELETE FROM customers WHERE id = ?", [id]);
+      saveDatabase();
+      return true;
+    } catch (error) {
+      console.error('Error deleting customer:', error);
+      throw error;
+    }
+  },
+
+  getOrderHistory: (customerId) => {
+    try {
+      const stmt = db.prepare("SELECT * FROM orders WHERE customer_id = ? ORDER BY created_at DESC");
+      stmt.bind([customerId]);
+      const orders = [];
+      while (stmt.step()) {
+        orders.push(stmt.getAsObject());
+      }
+      stmt.free();
+      return orders;
+    } catch (error) {
+      console.error('Error getting customer order history:', error);
+      return [];
+    }
   }
 };
 
@@ -666,25 +1252,27 @@ const orderOps = {
   },
 
   create: (orderData) => {
+    const orderNumber = orderData.order_number || orderData.orderNumber;
+    const customerId = orderData.customer_id || orderData.customerId || null;
+    const subtotal = orderData.subtotal;
+    const discountAmount = orderData.discount_amount !== undefined ? orderData.discount_amount : (orderData.discountAmount || 0);
+    const discountType = orderData.discount_type || orderData.discountType || 'fixed';
+    const taxAmount = orderData.tax_amount !== undefined ? orderData.tax_amount : orderData.taxAmount;
+    const taxRate = orderData.tax_rate || orderData.taxRate || 9;
+    const totalAmount = orderData.total_amount !== undefined ? orderData.total_amount : orderData.totalAmount;
+    const paymentMode = orderData.payment_mode || orderData.paymentMode || 'cash';
+    const paymentStatus = orderData.payment_status || orderData.paymentStatus || 'unpaid';
+    const status = orderData.status || 'pending';
+    const notes = orderData.notes || '';
+
     db.run(`
       INSERT INTO orders (
-        order_number, subtotal, discount_amount, discount_type,
+        order_number, customer_id, subtotal, discount_amount, discount_type,
         tax_amount, tax_rate, total_amount, payment_mode,
         payment_status, status, notes
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `, [
-      orderData.orderNumber,
-      orderData.subtotal,
-      orderData.discountAmount || 0,
-      orderData.discountType || 'fixed',
-      orderData.taxAmount,
-      orderData.taxRate || 9,
-      orderData.totalAmount,
-      orderData.paymentMode || 'cash',
-      orderData.paymentStatus || 'unpaid',
-      orderData.status || 'pending',
-      orderData.notes || ''
-    ]);
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `, orderNumber, customerId, subtotal, discountAmount, discountType, taxAmount, taxRate, totalAmount, paymentMode, paymentStatus, status, notes);
+    
     const result = db.exec('SELECT last_insert_rowid() as id');
     saveDatabase();
     return result[0].values[0][0];
@@ -694,14 +1282,7 @@ const orderOps = {
     db.run(`
       INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price, total_price, notes)
       VALUES (?, ?, ?, ?, ?, ?)
-    `, [
-      orderId,
-      itemData.menuItemId,
-      itemData.quantity,
-      itemData.unitPrice,
-      itemData.totalPrice,
-      itemData.notes || ''
-    ]);
+    `, orderId, itemData.menuItemId, itemData.quantity, itemData.unitPrice, itemData.totalPrice, itemData.notes || '');
     saveDatabase();
   },
 
@@ -855,13 +1436,23 @@ const settingOps = {
   },
 
   set: (key, value) => {
-    db.run(`
-      INSERT OR REPLACE INTO settings (key, value, description, updated_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-    `, [key, value, null]);
+    // First try to update existing setting
+    const stmt1 = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
+    stmt1.bind([String(value), key]);
+    stmt1.step();
+    const changes = db.getRowsModified();
+    stmt1.free();
+
+    // If no rows were updated, insert new setting
+    if (changes === 0) {
+      const stmt2 = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
+      stmt2.bind([key, String(value)]);
+      stmt2.step();
+      stmt2.free();
+    }
     saveDatabase();
   },
-  
+
   getAll: () => {
     const result = db.exec('SELECT key, value FROM settings');
     // Convert to object for easier use: { key: value }
@@ -871,20 +1462,46 @@ const settingOps = {
       return acc;
     }, {});
   },
-  
+
   updateMultiple: (settingsObj) => {
-    for (const [key, value] of Object.entries(settingsObj)) {
-      db.run(`
-        INSERT OR REPLACE INTO settings (key, value, description, updated_at)
-        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      `, [key, value, null]);
+    try {
+      console.log('Updating settings:', Object.keys(settingsObj));
+      for (const [key, value] of Object.entries(settingsObj)) {
+        // First try to update existing setting
+        const stmt1 = db.prepare('UPDATE settings SET value = ? WHERE key = ?');
+        stmt1.bind([String(value), key]);
+        stmt1.step();
+        const changes = db.getRowsModified();
+        stmt1.free();
+
+        // If no rows were updated, insert new setting
+        if (changes === 0) {
+          const stmt2 = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?)');
+          stmt2.bind([key, String(value)]);
+          stmt2.step();
+          stmt2.free();
+        }
+      }
+      saveDatabase();
+    } catch (err) {
+      console.error('Error in updateMultiple:', err);
+      throw err;
     }
-    saveDatabase();
+  }
+};
+
+const systemOps = {
+  rawQuery: (sql, params = []) => {
+    return db.run(sql, params);
+  },
+  exec: (sql, params = []) => {
+    return db.exec(sql, params);
   }
 };
 
 // Export all operations
 module.exports = {
+  system: systemOps,
   initDatabase,
   saveDatabase,
   user: userOps,
@@ -926,19 +1543,18 @@ function seedDefaultData() {
       db.run('INSERT INTO roles (name, description, permissions) VALUES (?, ?, ?)',
         ['admin', 'Administrator with full access', JSON.stringify(['manage_all', 'manage_settings', 'manage_users', 'manage_menu', 'manage_orders', 'view_reports'])]);
     }
-  
+
     const cashierRoleResult = db.exec('SELECT id FROM roles WHERE name = ?', ['cashier']);
     const cashierRole = cashierRoleResult.length > 0 && cashierRoleResult[0].values.length > 0 ? resultToObjects(cashierRoleResult)[0] : null;
     if (!cashierRole) {
       db.run('INSERT INTO roles (name, description, permissions) VALUES (?, ?, ?)',
-        ['cashier', 'Cashier with limited access', JSON.stringify(['manage_orders', 'view_menu'])]);
+        ['cashier', 'Cashier with basic access', JSON.stringify(['manage_orders', 'view_menu', 'view_customers', 'view_inventory', 'view_settings'])]);
     }
-  
+
     // Create default admin user if not exists
     const adminUserResult = db.exec('SELECT id FROM users WHERE username = ?', ['admin']);
     const adminUser = adminUserResult.length > 0 && adminUserResult[0].values.length > 0 ? resultToObjects(adminUserResult)[0] : null;
     if (!adminUser) {
-      const bcrypt = require('bcryptjs');
       const adminRoleIdResult = db.exec('SELECT id FROM roles WHERE name = ?', ['admin']);
       const adminRoleId = adminRoleIdResult.length > 0 && adminRoleIdResult[0].values.length > 0 ? resultToObjects(adminRoleIdResult)[0].id : null;
 
@@ -995,7 +1611,6 @@ const dbOps = {
     },
 
     getByPin: (pin) => {
-      const bcrypt = require('bcryptjs');
       const result = db.exec('SELECT * FROM users WHERE is_active = 1');
       const users = resultToObjects(result);
       return users.find(user => bcrypt.compareSync(pin, user.pin_hash));
@@ -1097,7 +1712,7 @@ const dbOps = {
       const customers = resultToObjects(result);
       return customers[0] || null;
     },
-    
+
     getByPhone: (phone) => {
       const result = db.exec('SELECT * FROM customers WHERE phone = ?', [phone]);
       const customers = resultToObjects(result);
@@ -1384,60 +1999,83 @@ process.on('SIGINT', () => {
   process.exit(0);
 });
 
-// Unified exports - merge old-style ops with dbOps
+// Unified exports - merge verified operations
 module.exports = {
   initDatabase,
   saveDatabase,
   getDatabase: () => db,
-  // Old-style operations (for compatibility with server.js)
+  // Operations (consistent with server.js and mvp-endpoints.js expectations)
   user: userOps,
+  role: roleOps,
+  roles: roleOps,
   category: categoryOps,
-  menu: menuOps,
-  order: orderOps,
-  kot: kotOps,
-  tax: taxOps,
-  settings: settingOps,
-  settingOps: settingOps,
-  // Aliases
   categoryOps,
+  menu: menuOps,
   menuOps,
+  order: orderOps,
   orderOps,
+  kot: kotOps,
   kotOps,
+  tax: taxOps,
   taxOps,
-  settingsOps: settingOps,
+  settings: settingOps,
   settingOps,
-  // New dbOps structure - merge userOps with dbOps.user
-  user: {
-    ...userOps,
-    ...dbOps.user,
-    // Ensure getByPin is accessible
-    // getByPin: dbOps.user.getByPin
-  },
-  roles: dbOps.role,
-  customer: dbOps.customer,
-  inventory: dbOps.inventory,
-  reports: dbOps.reports,
-  backup: dbOps.backup,
-  // Enhanced modules
-  tokenQueue: tokenQueueManager,
-  inventoryManager: inventoryManager,
-  orderHold: orderHoldManager,
-  // Query helper for raw SQL
+  customer: customerOps,
+  customerOps,
+  // Query helper for raw SQL (used by enterprise endpoints)
   query: (sql, params = []) => {
     try {
-      const stmt = db.prepare(sql);
-      if (params.length > 0) {
-        stmt.bind(params);
-      }
-      const results = [];
-      while (stmt.step()) {
-        results.push(stmt.getAsObject());
-      }
-      stmt.free();
-      return { rows: results };
+      const result = db.exec(sql, params);
+      return { rows: resultToObjects(result) };
     } catch (error) {
       console.error('Query error:', error);
       throw error;
     }
-  }
+  },
+  // Helpers to match various expected APIs
+  run: (sql, params = []) => {
+    try {
+      db.run(sql, params);
+      return Promise.resolve({
+        lastID: db.exec("SELECT last_insert_rowid()")[0]?.values[0]?.[0] || null,
+        changes: db.getRowsModified()
+      });
+    } catch (error) {
+      console.error('Run error:', error);
+      return Promise.reject(error);
+    }
+  },
+  get: (sql, params = []) => {
+    try {
+      const result = db.exec(sql, params);
+      const objects = resultToObjects(result);
+      return Promise.resolve(objects[0] || null);
+    } catch (error) {
+      console.error('Get error:', error);
+      return Promise.reject(error);
+    }
+  },
+  all: (sql, params = []) => {
+    try {
+      const result = db.exec(sql, params);
+      return Promise.resolve(resultToObjects(result));
+    } catch (error) {
+      console.error('All error:', error);
+      return Promise.reject(error);
+    }
+  },
+  execute: (sql, params = []) => {
+    try {
+      const result = db.exec(sql, params);
+      return Promise.resolve(resultToObjects(result));
+    } catch (error) {
+      console.error('Execute error:', error);
+      return Promise.reject(error);
+    }
+  },
+  // Enhanced modules
+  tokenQueue: tokenQueueManager,
+  inventoryManager: inventoryManager,
+  orderHold: orderHoldManager,
+  system: systemOps
 };

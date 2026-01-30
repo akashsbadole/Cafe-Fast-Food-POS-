@@ -19,11 +19,12 @@
   "author": "Cafe POS Team - akash badole",
   "license": "MIT",
   "dependencies": {
-    "@casl/ability": "^6.7.5",
+    "@casl/ability": "^6.8.0",
     "bcryptjs": "^2.4.3",
     "chart.js": "^4.4.0",
     "cors": "^2.8.5",
     "csv-parser": "^3.2.0",
+    "csv-writer": "^1.6.0",
     "dotenv": "^16.6.1",
     "electron": "^40.0.0",
     "express": "^4.22.1",
@@ -40,6 +41,7 @@
     "sql.js": "^1.13.0"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
     "axios": "^1.13.2",
     "chai": "^6.2.2",
     "electron-builder": "^26.4.0",

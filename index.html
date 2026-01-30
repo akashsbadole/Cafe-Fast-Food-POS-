@@ -275,7 +275,8 @@
 
               <!-- Stock Indicator -->
               <div class="menu-item-stock" x-show="item.stock_quantity !== null"
-                :style="item.stock_quantity < 5 ? 'background: #ef4444; color: white;' : 'background: rgba(0,0,0,0.6); color: white;'">
+                :class="item.stock_quantity < 5 ? 'critical' : 'low'"
+                :aria-label="item.stock_quantity + ' items left in stock'">
                 <span x-text="item.stock_quantity + ' left'"></span>
               </div>
             </div>
@@ -404,15 +405,33 @@
         <div class="payment-section">
           <div class="payment-modes">
             <button class="payment-mode" :class="{ 'active': paymentMode === 'cash' }" @click="paymentMode = 'cash'"
-              role="tab" :aria-selected="paymentMode === 'cash'">💵 Cash</button>
+              role="tab" :aria-selected="paymentMode === 'cash'" tabindex="0" @keydown.enter="paymentMode = 'cash'"
+              @keydown.space.prevent="paymentMode = 'cash'">
+              <i>💵</i>
+              <span>Cash</span>
+            </button>
             <button class="payment-mode" :class="{ 'active': paymentMode === 'upi' }" @click="paymentMode = 'upi'"
-              role="tab" :aria-selected="paymentMode === 'upi'">📱 UPI</button>
+              role="tab" :aria-selected="paymentMode === 'upi'" tabindex="0" @keydown.enter="paymentMode = 'upi'"
+              @keydown.space.prevent="paymentMode = 'upi'">
+              <i>📱</i>
+              <span>UPI</span>
+            </button>
             <button class="payment-mode" :class="{ 'active': paymentMode === 'card' }" @click="paymentMode = 'card'"
-              role="tab" :aria-selected="paymentMode === 'card'">💳 Card</button>
+              role="tab" :aria-selected="paymentMode === 'card'" tabindex="0" @keydown.enter="paymentMode = 'card'"
+              @keydown.space.prevent="paymentMode = 'card'">
+              <i>💳</i>
+              <span>Card</span>
+            </button>
           </div>
           <div class="action-buttons">
-            <button class="btn btn-secondary btn-full" @click="sendToKitchen()">📤 Send to Kitchen</button>
-            <button class="btn btn-primary btn-full" @click="checkout()">💰 Checkout & Print</button>
+            <button class="btn btn-secondary btn-full" @click="sendToKitchen()" tabindex="0"
+              @keydown.enter="sendToKitchen()" @keydown.space.prevent="sendToKitchen()">
+              📤 Send to Kitchen
+            </button>
+            <button class="btn btn-primary btn-full" @click="checkout()" tabindex="0"
+              @keydown.enter="checkout()" @keydown.space.prevent="checkout()">
+              💰 Checkout & Print
+            </button>
           </div>
         </div>
       </div>
@@ -423,7 +442,10 @@
       <div class="modal-content modal-large settings-container">
         <div class="modal-header">
           <h2>⚙️ Settings</h2>
-          <button class="btn btn-icon" @click="showSettings = false">✕</button>
+          <button class="btn btn-icon" @click="showSettings = false" tabindex="0"
+                  @keydown.enter="showSettings = false" @keydown.space.prevent="showSettings = false">
+            ✕
+          </button>
         </div>
         
         <!-- Tab Navigation -->
@@ -431,43 +453,73 @@
           <button class="settings-tab" role="tab"
                   :class="{ 'active': activeSettingsTab === 'general' }"
                   @click="activeSettingsTab = 'general'"
-                  aria-selected="${activeSettingsTab === 'general'}"
-                  aria-controls="general-tab-panel">
+                  :aria-selected="activeSettingsTab === 'general'"
+                  aria-controls="general-tab-panel"
+                  tabindex="0"
+                  @keydown.enter="activeSettingsTab = 'general'"
+                  @keydown.space.prevent="activeSettingsTab = 'general'"
+                  @keydown.right="focusNextTab()"
+                  @keydown.left="focusPrevTab()">
             General
           </button>
           <button class="settings-tab" role="tab"
                   :class="{ 'active': activeSettingsTab === 'business' }"
                   @click="activeSettingsTab = 'business'"
-                  aria-selected="${activeSettingsTab === 'business'}"
-                  aria-controls="business-tab-panel">
+                  :aria-selected="activeSettingsTab === 'business'"
+                  aria-controls="business-tab-panel"
+                  tabindex="0"
+                  @keydown.enter="activeSettingsTab = 'business'"
+                  @keydown.space.prevent="activeSettingsTab = 'business'"
+                  @keydown.right="focusNextTab()"
+                  @keydown.left="focusPrevTab()">
             Business
           </button>
           <button class="settings-tab" role="tab"
                   :class="{ 'active': activeSettingsTab === 'receipt' }"
                   @click="activeSettingsTab = 'receipt'"
-                  aria-selected="${activeSettingsTab === 'receipt'}"
-                  aria-controls="receipt-tab-panel">
+                  :aria-selected="activeSettingsTab === 'receipt'"
+                  aria-controls="receipt-tab-panel"
+                  tabindex="0"
+                  @keydown.enter="activeSettingsTab = 'receipt'"
+                  @keydown.space.prevent="activeSettingsTab = 'receipt'"
+                  @keydown.right="focusNextTab()"
+                  @keydown.left="focusPrevTab()">
             Receipt
           </button>
           <button class="settings-tab" role="tab"
                   :class="{ 'active': activeSettingsTab === 'tax' }"
                   @click="activeSettingsTab = 'tax'"
-                  aria-selected="${activeSettingsTab === 'tax'}"
-                  aria-controls="tax-tab-panel">
+                  :aria-selected="activeSettingsTab === 'tax'"
+                  aria-controls="tax-tab-panel"
+                  tabindex="0"
+                  @keydown.enter="activeSettingsTab = 'tax'"
+                  @keydown.space.prevent="activeSettingsTab = 'tax'"
+                  @keydown.right="focusNextTab()"
+                  @keydown.left="focusPrevTab()">
             Tax
           </button>
           <button class="settings-tab" role="tab"
                   :class="{ 'active': activeSettingsTab === 'data' }"
                   @click="activeSettingsTab = 'data'"
-                  aria-selected="${activeSettingsTab === 'data'}"
-                  aria-controls="data-tab-panel">
+                  :aria-selected="activeSettingsTab === 'data'"
+                  aria-controls="data-tab-panel"
+                  tabindex="0"
+                  @keydown.enter="activeSettingsTab = 'data'"
+                  @keydown.space.prevent="activeSettingsTab = 'data'"
+                  @keydown.right="focusNextTab()"
+                  @keydown.left="focusPrevTab()">
             Data
           </button>
           <button class="settings-tab" role="tab"
                   :class="{ 'active': activeSettingsTab === 'system' }"
                   @click="activeSettingsTab = 'system'"
-                  aria-selected="${activeSettingsTab === 'system'}"
-                  aria-controls="system-tab-panel">
+                  :aria-selected="activeSettingsTab === 'system'"
+                  aria-controls="system-tab-panel"
+                  tabindex="0"
+                  @keydown.enter="activeSettingsTab = 'system'"
+                  @keydown.space.prevent="activeSettingsTab = 'system'"
+                  @keydown.right="focusNextTab()"
+                  @keydown.left="focusPrevTab()">
             System
           </button>
         </div>
@@ -1080,7 +1132,7 @@
                   </div>
                   <div class="history-amount">
                     <div class="total" x-text="formatCurrency(session.total_amount)"></div>
-                    <span class="status" :class="session.status" x-text="session.status.toUpperCase()"></span>
+                    <span class="status" :class="session?.status || 'unknown'" x-text="(session?.status || 'UNKNOWN').toUpperCase()"></span>
                   </div>
                 </div>
               </template>
@@ -1341,7 +1393,7 @@
                   </div>
                   <div class="history-amount">
                     <div class="total" x-text="formatCurrency(session.total_amount)"></div>
-                    <span class="status" :class="session.status" x-text="session.status.toUpperCase()"></span>
+                    <span class="status" :class="session?.status || 'unknown'" x-text="(session?.status || 'UNKNOWN').toUpperCase()"></span>
                   </div>
                 </div>
               </template>
@@ -2012,28 +2064,497 @@
         <button class="btn btn-icon" @click="showInventoryManagement = false">✕</button>
       </div>
       <div class="modal-body">
-        <h3>Low Stock Items</h3>
-        <div class="low-stock-items">
-          <template x-for="item in lowStockItems" :key="item.id">
-            <div class="stock-item">
-              <div class="item-info">
-                <h4 x-text="item.name"></h4>
-                <p>Category: <span x-text="item.category_name"></span></p>
-                <p>Current Stock: <span x-text="item.stock_quantity"></span></p>
-                <p>Threshold: <span x-text="item.low_stock_threshold"></span></p>
+        <!-- Inventory Tabs -->
+        <div class="inventory-tabs">
+          <button class="inventory-tab" :class="{ 'active': inventoryTab === 'overview' }" 
+                  @click="inventoryTab = 'overview'">📊 Overview</button>
+          <button class="inventory-tab" :class="{ 'active': inventoryTab === 'low-stock' }" 
+                  @click="inventoryTab = 'low-stock'">⚠️ Low Stock</button>
+          <button class="inventory-tab" :class="{ 'active': inventoryTab === 'all-items' }" 
+                  @click="inventoryTab = 'all-items'">📋 All Items</button>
+          <button class="inventory-tab" :class="{ 'active': inventoryTab === 'add-item' }" 
+                  @click="inventoryTab = 'add-item'">➕ Add Item</button>
+          <button class="inventory-tab" :class="{ 'active': inventoryTab === 'import-export' }" 
+                  @click="inventoryTab = 'import-export'">📤 Import/Export</button>
+          <button class="inventory-tab" :class="{ 'active': inventoryTab === 'categories' }" 
+                  @click="inventoryTab = 'categories'">🏷️ Categories</button>
+          <button class="inventory-tab" :class="{ 'active': inventoryTab === 'suppliers' }" 
+                  @click="inventoryTab = 'suppliers'">🏢 Suppliers</button>
+        </div>
+
+        <!-- Overview Tab -->
+        <div x-show="inventoryTab === 'overview'" class="inventory-section">
+          <div class="inventory-stats">
+            <div class="stat-card">
+              <h4>Total Items</h4>
+              <div class="stat-value" x-text="inventoryStats.totalItems"></div>
+            </div>
+            <div class="stat-card">
+              <h4>Low Stock</h4>
+              <div class="stat-value stat-warning" x-text="inventoryStats.lowStockCount"></div>
+            </div>
+            <div class="stat-card">
+              <h4>Out of Stock</h4>
+              <div class="stat-value stat-danger" x-text="inventoryStats.outOfStockCount"></div>
+            </div>
+            <div class="stat-card">
+              <h4>Total Value</h4>
+              <div class="stat-value" x-text="formatCurrency(inventoryStats.totalValue)"></div>
+            </div>
+          </div>
+          
+          <div class="quick-actions">
+            <button class="btn btn-primary" @click="inventoryTab = 'add-item'">➕ Add New Item</button>
+            <button class="btn btn-secondary" @click="inventoryTab = 'import-export'">📤 Import/Export</button>
+            <button class="btn btn-secondary" @click="inventoryTab = 'categories'">🏷️ Manage Categories</button>
+          </div>
+        </div>
+
+        <!-- Low Stock Tab -->
+        <div x-show="inventoryTab === 'low-stock'" class="inventory-section">
+          <h3>⚠️ Low Stock Items</h3>
+          <div class="low-stock-items">
+            <template x-for="item in lowStockItems" :key="item.id">
+              <div class="stock-item">
+                <div class="item-info">
+                  <h4 x-text="item.name"></h4>
+                  <p>Category: <span x-text="item.category_name"></span></p>
+                  <p>Current Stock: <span x-text="item.stock_quantity"></span></p>
+                  <p>Threshold: <span x-text="item.low_stock_threshold"></span></p>
+                  <p class="stock-level" :class="{'low': item.stock_quantity <= item.low_stock_threshold, 'critical': item.stock_quantity === 0}">
+                    Stock Level: <span x-text="item.stock_quantity <= item.low_stock_threshold ? 'CRITICAL' : 'LOW'"></span>
+                  </p>
+                </div>
+                <div class="stock-actions">
+                  <input type="number" x-model="stockAdjustment.quantity" placeholder="Quantity">
+                  <input type="text" x-model="stockAdjustment.reason" placeholder="Reason">
+                  <button class="btn btn-primary" @click="adjustStock(item.id)">Adjust Stock</button>
+                  <button class="btn btn-warning" @click="reorderItem(item)">Reorder</button>
+                </div>
               </div>
-              <div class="stock-actions">
-                <input type="number" x-model="stockAdjustment.quantity" placeholder="Quantity">
-                <input type="text" x-model="stockAdjustment.reason" placeholder="Reason">
-                <button class="btn btn-primary" @click="adjustStock(item.id)">Adjust Stock</button>
+            </template>
+            <div x-show="lowStockItems.length === 0" class="empty-state">
+              <p>🎉 No low stock items!</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- All Items Tab -->
+        <div x-show="inventoryTab === 'all-items'" class="inventory-section">
+          <div class="inventory-toolbar">
+            <div class="search-container">
+              <input type="text" x-model.debounce.300ms="inventorySearch" placeholder="🔍 Search inventory...">
+            </div>
+            <div class="filter-controls">
+              <select x-model="inventoryCategoryFilter">
+                <option value="">All Categories</option>
+                <template x-for="category in inventoryCategories" :key="category.id">
+                  <option :value="category.id" x-text="category.name"></option>
+                </template>
+              </select>
+              <select x-model="inventoryStatusFilter">
+                <option value="">All Status</option>
+                <option value="in-stock">In Stock</option>
+                <option value="low-stock">Low Stock</option>
+                <option value="out-of-stock">Out of Stock</option>
+              </select>
+            </div>
+            <button class="btn btn-primary" @click="inventoryTab = 'add-item'">➕ Add Item</button>
+          </div>
+          
+          <div class="inventory-table-container">
+            <table class="inventory-table">
+              <thead>
+                <tr>
+                  <th>Item Name</th>
+                  <th>Category</th>
+                  <th>Stock</th>
+                  <th>Threshold</th>
+                  <th>Status</th>
+                  <th>Cost Price</th>
+                  <th>Selling Price</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="item in filteredInventoryItems" :key="item.id">
+                  <tr :class="{'low-stock-row': item.stock_quantity <= item.low_stock_threshold, 'out-of-stock-row': item.stock_quantity === 0}">
+                    <td x-text="item.name"></td>
+                    <td x-text="item.category_name || 'Uncategorized'"></td>
+                    <td x-text="item.stock_quantity"></td>
+                    <td x-text="item.low_stock_threshold || 'N/A'"></td>
+                    <td>
+                      <span class="badge" 
+                            :class="item.stock_quantity === 0 ? 'badge-danger' : (item.stock_quantity <= item.low_stock_threshold ? 'badge-warning' : 'badge-success')"
+                            x-text="item.stock_quantity === 0 ? 'Out of Stock' : (item.stock_quantity <= item.low_stock_threshold ? 'Low Stock' : 'In Stock')">
+                      </span>
+                    </td>
+                    <td x-text="formatCurrency(item.cost_price || 0)"></td>
+                    <td x-text="formatCurrency(item.selling_price || 0)"></td>
+                    <td class="inventory-actions">
+                      <button class="btn btn-small btn-primary" @click="editInventoryItem(item)">Edit</button>
+                      <button class="btn btn-small btn-secondary" @click="adjustStockModal(item)">Adjust</button>
+                      <button class="btn btn-small btn-danger" @click="deleteInventoryItem(item.id)">Delete</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+            <div x-show="filteredInventoryItems.length === 0" class="empty-state">
+              <p>No inventory items found</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Add Item Tab -->
+        <div x-show="inventoryTab === 'add-item'" class="inventory-section">
+          <h3>➕ Add New Inventory Item</h3>
+          <form @submit.prevent="saveInventoryItem()" class="inventory-form">
+            <div class="form-grid">
+              <div class="form-group">
+                <label>Item Name *</label>
+                <input type="text" x-model="inventoryForm.name" required>
+              </div>
+              <div class="form-group">
+                <label>Category</label>
+                <select x-model="inventoryForm.category_id">
+                  <option value="">Select Category</option>
+                  <template x-for="category in inventoryCategories" :key="category.id">
+                    <option :value="category.id" x-text="category.name"></option>
+                  </template>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Initial Stock Quantity</label>
+                <input type="number" x-model.number="inventoryForm.stock_quantity" min="0" step="1">
+              </div>
+              <div class="form-group">
+                <label>Low Stock Threshold</label>
+                <input type="number" x-model.number="inventoryForm.low_stock_threshold" min="0" step="1">
+              </div>
+              <div class="form-group">
+                <label>Cost Price</label>
+                <input type="number" x-model.number="inventoryForm.cost_price" min="0" step="0.01" placeholder="0.00">
+              </div>
+              <div class="form-group">
+                <label>Selling Price</label>
+                <input type="number" x-model.number="inventoryForm.selling_price" min="0" step="0.01" placeholder="0.00">
+              </div>
+              <div class="form-group">
+                <label>Unit of Measurement</label>
+                <select x-model="inventoryForm.unit">
+                  <option value="piece">Piece</option>
+                  <option value="gram">Gram</option>
+                  <option value="kg">Kilogram</option>
+                  <option value="liter">Liter</option>
+                  <option value="ml">Milliliter</option>
+                  <option value="pack">Pack</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>Supplier</label>
+                <select x-model="inventoryForm.supplier_id">
+                  <option value="">Select Supplier</option>
+                  <template x-for="supplier in inventorySuppliers" :key="supplier.id">
+                    <option :value="supplier.id" x-text="supplier.name"></option>
+                  </template>
+                </select>
               </div>
             </div>
-          </template>
-          <div x-show="lowStockItems.length === 0" class="empty-state">
-            <p>No low stock items</p>
+            <div class="form-group">
+              <label>Description</label>
+              <textarea x-model="inventoryForm.description" rows="3" placeholder="Item description..."></textarea>
+            </div>
+            <div class="form-actions">
+              <button type="button" class="btn btn-secondary" @click="resetInventoryForm()">Reset</button>
+              <button type="submit" class="btn btn-primary">Save Item</button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Import/Export Tab -->
+        <div x-show="inventoryTab === 'import-export'" class="inventory-section">
+          <h3>📤 Import/Export Inventory Data</h3>
+          <div class="import-export-container">
+            <!-- Export Section -->
+            <div class="export-section">
+              <h4>📥 Export Data</h4>
+              <div class="export-options">
+                <button class="btn btn-secondary" @click="exportInventoryData('all')">📋 Export All Items</button>
+                <button class="btn btn-secondary" @click="exportInventoryData('low-stock')">⚠️ Export Low Stock</button>
+                <button class="btn btn-secondary" @click="exportInventoryData('out-of-stock')">❌ Export Out of Stock</button>
+                <button class="btn btn-secondary" @click="exportInventoryTemplate()">📄 Download Template</button>
+              </div>
+            </div>
+
+            <!-- Import Section -->
+            <div class="import-section">
+              <h4>📤 Import Data</h4>
+              <div class="import-controls">
+                <div class="file-input-wrapper">
+                  <input type="file" id="inventory-import-file" accept=".csv" @change="handleInventoryImport($event)">
+                  <label for="inventory-import-file" class="btn btn-primary">📁 Choose CSV File</label>
+                  <span class="file-name" x-text="importFileName || 'No file selected'"></span>
+                </div>
+                <div class="import-options">
+                  <label class="checkbox-label">
+                    <input type="checkbox" x-model="importOptions.updateExisting">
+                    Update existing items
+                  </label>
+                  <label class="checkbox-label">
+                    <input type="checkbox" x-model="importOptions.validateOnly">
+                    Validate only (dry run)
+                  </label>
+                </div>
+                <button class="btn btn-primary" @click="processInventoryImport()" :disabled="!importFileName">🚀 Import Data</button>
+              </div>
+              
+              <!-- Import Preview -->
+              <div x-show="importPreview.length > 0" class="import-preview">
+                <h5>Preview Import Data</h5>
+                <div class="preview-stats">
+                  <span>Total Records: <strong x-text="importPreview.length"></strong></span>
+                  <span>New Items: <strong x-text="importPreview.filter(item => !item.exists).length"></strong></span>
+                  <span>Updates: <strong x-text="importPreview.filter(item => item.exists).length"></strong></span>
+                </div>
+                <div class="preview-table">
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>Category</th>
+                        <th>Stock</th>
+                        <th>Cost Price</th>
+                        <th>Selling Price</th>
+                        <th>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template x-for="item in importPreview.slice(0, 10)" :key="item.name">
+                        <tr>
+                          <td x-text="item.name"></td>
+                          <td x-text="item.category_name"></td>
+                          <td x-text="item.stock_quantity"></td>
+                          <td x-text="formatCurrency(item.cost_price)"></td>
+                          <td x-text="formatCurrency(item.selling_price)"></td>
+                          <td>
+                            <span class="badge" :class="item.exists ? 'badge-warning' : 'badge-success'" 
+                                  x-text="item.exists ? 'Update' : 'New'"></span>
+                          </td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                  <div x-show="importPreview.length > 10" class="preview-more">
+                    ... and <span x-text="importPreview.length - 10"></span> more records
+                  </div>
+                </div>
+              </div>
+
+              <!-- Import Results -->
+              <div x-show="importResults && (importResults.summary.created + importResults.summary.updated + importResults.summary.errors > 0)" class="import-results">
+                <h5>Import Results</h5>
+                <div class="results-summary">
+                  <div class="result-item success">
+                    <span>✅ Created:</span>
+                    <strong x-text="importResults.summary.created || 0"></strong>
+                  </div>
+                  <div class="result-item warning">
+                    <span>⚠️ Updated:</span>
+                    <strong x-text="importResults.summary.updated || 0"></strong>
+                  </div>
+                  <div class="result-item danger">
+                    <span>❌ Failed:</span>
+                    <strong x-text="importResults.summary.errors || 0"></strong>
+                  </div>
+                </div>
+                <div x-show="importResults.errors && importResults.errors.length > 0" class="import-errors">
+                  <h6>Errors:</h6>
+                  <ul>
+                    <template x-for="error in importResults.errors" :key="error.row">
+                      <li>Error in row <strong x-text="error.row"></strong>: <span x-text="error.message"></span></li>
+                    </template>
+                  </ul>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Categories Tab -->
+        <div x-show="inventoryTab === 'categories'" class="inventory-section">
+          <div class="categories-toolbar">
+            <h3>🏷️ Inventory Categories</h3>
+            <button class="btn btn-primary" @click="showCategoryForm()">➕ Add Category</button>
+          </div>
+          <div class="categories-list">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Description</th>
+                  <th>Item Count</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="category in inventoryCategories" :key="category.id">
+                  <tr>
+                    <td x-text="category.name"></td>
+                    <td x-text="category.description || '-'"></td>
+                    <td x-text="category.item_count || 0"></td>
+                    <td class="category-actions">
+                      <button class="btn btn-small btn-secondary" @click="editCategory(category)">Edit</button>
+                      <button class="btn btn-small btn-danger" @click="deleteCategory(category.id)">Delete</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Suppliers Tab -->
+        <div x-show="inventoryTab === 'suppliers'" class="inventory-section">
+          <div class="suppliers-toolbar">
+            <h3>🏢 Suppliers</h3>
+            <button class="btn btn-primary" @click="showSupplierForm()">➕ Add Supplier</button>
+          </div>
+          <div class="suppliers-list">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Contact</th>
+                  <th>Phone</th>
+                  <th>Email</th>
+                  <th>Items Supplied</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <template x-for="supplier in inventorySuppliers" :key="supplier.id">
+                  <tr>
+                    <td x-text="supplier.name"></td>
+                    <td x-text="supplier.contact_person || '-'"></td>
+                    <td x-text="supplier.phone || '-'"></td>
+                    <td x-text="supplier.email || '-'"></td>
+                    <td x-text="supplier.item_count || 0"></td>
+                    <td class="supplier-actions">
+                      <button class="btn btn-small btn-secondary" @click="editSupplier(supplier)">Edit</button>
+                      <button class="btn btn-small btn-danger" @click="deleteSupplier(supplier.id)">Delete</button>
+                    </td>
+                  </tr>
+                </template>
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Category Form Modal -->
+  <div id="category-form-modal" class="modal" :class="{ 'active': showCategoryFormModal }">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 x-text="editingCategory ? 'Edit Category' : 'Add Category'"></h2>
+        <button class="btn btn-icon" @click="showCategoryFormModal = false">✕</button>
+      </div>
+      <form @submit.prevent="saveCategory()" class="modal-form">
+        <div class="form-group">
+          <label>Category Name *</label>
+          <input type="text" x-model="categoryForm.name" required>
+        </div>
+        <div class="form-group">
+          <label>Description</label>
+          <textarea x-model="categoryForm.description" rows="3" placeholder="Category description..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="showCategoryFormModal = false">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Category</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Supplier Form Modal -->
+  <div id="supplier-form-modal" class="modal" :class="{ 'active': showSupplierFormModal }">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 x-text="editingSupplier ? 'Edit Supplier' : 'Add Supplier'"></h2>
+        <button class="btn btn-icon" @click="showSupplierFormModal = false">✕</button>
+      </div>
+      <form @submit.prevent="saveSupplier()" class="modal-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Supplier Name *</label>
+            <input type="text" x-model="supplierForm.name" required>
+          </div>
+          <div class="form-group">
+            <label>Contact Person</label>
+            <input type="text" x-model="supplierForm.contact_person">
+          </div>
+          <div class="form-group">
+            <label>Phone</label>
+            <input type="tel" x-model="supplierForm.phone">
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" x-model="supplierForm.email">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Address</label>
+          <textarea x-model="supplierForm.address" rows="3" placeholder="Supplier address..."></textarea>
+        </div>
+        <div class="form-group">
+          <label>Notes</label>
+          <textarea x-model="supplierForm.notes" rows="2" placeholder="Additional notes..."></textarea>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="showSupplierFormModal = false">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save Supplier</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Stock Adjustment Modal -->
+  <div id="stock-adjustment-modal" class="modal" :class="{ 'active': showStockAdjustmentModal }">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>📦 Adjust Stock: <span x-text="selectedInventoryItem?.name"></span></h2>
+        <button class="btn btn-icon" @click="showStockAdjustmentModal = false">✕</button>
+      </div>
+      <form @submit.prevent="saveStockAdjustment()" class="modal-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label>Current Stock</label>
+            <input type="number" :value="selectedInventoryItem?.stock_quantity || 0" disabled>
+          </div>
+          <div class="form-group">
+            <label>Adjustment Type</label>
+            <select x-model="stockAdjustment.type">
+              <option value="add">Add Stock</option>
+              <option value="remove">Remove Stock</option>
+              <option value="set">Set Exact Quantity</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>Quantity</label>
+          <input type="number" x-model.number="stockAdjustment.quantity" min="0" step="1" required>
+        </div>
+        <div class="form-group">
+          <label>Reason</label>
+          <input type="text" x-model="stockAdjustment.reason" placeholder="e.g., Received shipment, Damaged goods, etc." required>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-secondary" @click="showStockAdjustmentModal = false">Cancel</button>
+          <button type="submit" class="btn btn-primary">Adjust Stock</button>
+        </div>
+      </form>
     </div>
   </div>
 

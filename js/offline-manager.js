@@ -89,9 +89,22 @@ class OfflineManager extends EventEmitter {
         const startTime = Date.now();
 
         console.log('[OfflineManager] Attempting ping to:', this.pingUrl);
+        console.log('[OfflineManager] Current window location origin:', typeof window !== 'undefined' ? window.location.origin : 'N/A');
+        
+        // Construct full URL properly
+        let fullUrl;
+        if (typeof window !== 'undefined' && window.location && window.location.origin) {
+            // Browser environment - construct absolute URL
+            fullUrl = window.location.origin + this.pingUrl;
+        } else {
+            // Node.js environment - use absolute URL
+            fullUrl = 'http://127.0.0.1:3000' + this.pingUrl;
+        }
+        
+        console.log('[OfflineManager] Full ping URL:', fullUrl);
 
         try {
-            const response = await fetch(this.pingUrl, {
+            const response = await fetch(fullUrl, {
                 method: 'GET',
                 cache: 'no-store',
                 signal: AbortSignal.timeout(this.pingTimeout)
@@ -106,7 +119,8 @@ class OfflineManager extends EventEmitter {
             console.warn('[OfflineManager] Server ping response not ok:', response.status, response.statusText);
             return false;
         } catch (error) {
-            console.error('[OfflineManager] Server ping failed with error:', error.message, 'URL:', this.pingUrl);
+            console.error('[OfflineManager] Server ping failed with error:', error.message, 'URL:', this.pingUrl, 'Full URL:', fullUrl);
+            console.error('[OfflineManager] Error stack:', error.stack);
             return false;
         }
     }

@@ -11,6 +11,10 @@ const ChartJS = require('chart.js');
 
 class ReportingManager {
     constructor(db, logger) {
+        if (!db) {
+            throw new Error('Database not initialized when creating ReportingManager');
+        }
+
         this.db = db;
         this.logger = logger || console;
         this.scheduledJobs = new Map();
@@ -19,10 +23,29 @@ class ReportingManager {
         this.transporter = null;
         this.isInitialized = false;
 
-        if (!this.db) {
-            this.logger.error('ReportingManager initialized with null database connection');
+        // Detect database type
+        this.isPostgres = typeof this.db.query === 'function' && typeof this.db.prepare !== 'function';
+
+        this.logger.info(`ReportingManager initialized with ${this.isPostgres ? 'PostgreSQL' : 'SQLite'} database`);
+    }
+
+    // Helper method to execute queries compatible with both databases
+    async executeQuery(query, params = []) {
+        if (this.isPostgres) {
+            const result = await this.db.query(query, params);
+            return result.rows || result;
         } else {
-            this.logger.info('ReportingManager initialized with database connection');
+            // SQL.js style
+            const stmt = this.db.prepare(query);
+            if (params.length > 0) {
+                stmt.bind(params);
+            }
+            const results = [];
+            while (stmt.step()) {
+                results.push(stmt.getAsObject());
+            }
+            stmt.free();
+            return results;
         }
     }
 
@@ -1356,7 +1379,7 @@ class ReportingManager {
         
         query += ' GROUP BY payment_mode';
         
-        return this.db.prepare(query).all(...params);
+        return this.executeQuery(query, params);
     }
 
     async getDailySummary(date, locationId = null) {
@@ -1379,7 +1402,7 @@ class ReportingManager {
             params.push(locationId);
         }
         
-        const result = this.db.prepare(query).all(...params);
+        const result = await this.executeQuery(query, params);
         return result.length > 0 ? result[0] : null;
     }
 
@@ -2488,9 +2511,9 @@ class ReportingManager {
     }
 
     async getScheduledReports() {
-        return this.db.prepare(`
+        return this.executeQuery(`
             SELECT * FROM scheduled_reports ORDER BY created_at DESC
-        `).all();
+        `);
     }
 
     async getScheduledReport(id) {
@@ -2712,11 +2735,14 @@ Cafe POS System`;
             WHERE (is_public = 1 OR created_by = ?)
         `;
         
+        const params = [userId];
+        
         if (includePrivate) {
             query = 'SELECT * FROM report_templates';
+            params.length = 0; // Clear params for public query
         }
         
-        return this.db.prepare(query).all(userId);
+        return this.executeQuery(query, params);
     }
 
     async getReportTemplate(id) {
@@ -2797,7 +2823,7 @@ Cafe POS System`;
     }
 
     async getBackupSchedules() {
-        return this.db.prepare('SELECT * FROM backup_schedules ORDER BY created_at DESC').all();
+        return this.executeQuery('SELECT * FROM backup_schedules ORDER BY created_at DESC');
     }
 
     async getBackupSchedule(id) {

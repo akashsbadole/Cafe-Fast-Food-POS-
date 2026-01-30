@@ -15,6 +15,30 @@ CREATE TABLE IF NOT EXISTS locations (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Inventory transactions table (if not exists)
+CREATE TABLE IF NOT EXISTS inventory_transactions (
+    id SERIAL PRIMARY KEY,
+    menu_item_id INTEGER,
+    transaction_type TEXT NOT NULL,
+    quantity REAL NOT NULL,
+    reason TEXT,
+    created_by INTEGER,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    location_id INTEGER DEFAULT 1,
+    FOREIGN KEY (menu_item_id) REFERENCES menu_items(id),
+    FOREIGN KEY (created_by) REFERENCES users(id)
+);
+
+-- Customers table (if not exists)
+CREATE TABLE IF NOT EXISTS customers (
+    id SERIAL PRIMARY KEY,
+    name TEXT,
+    phone TEXT UNIQUE NOT NULL,
+    email TEXT,
+    address TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Audit log table for tracking system changes
 CREATE TABLE IF NOT EXISTS audit_logs (
     id SERIAL PRIMARY KEY,
@@ -102,13 +126,23 @@ CREATE TABLE IF NOT EXISTS system_health (
 
 -- Add location_id to orders table
 ALTER TABLE orders ADD COLUMN IF NOT EXISTS location_id INTEGER DEFAULT 1;
-ALTER TABLE orders ADD CONSTRAINT IF NOT EXISTS fk_orders_location 
-    FOREIGN KEY (location_id) REFERENCES locations(id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_orders_location') THEN
+    ALTER TABLE orders ADD CONSTRAINT fk_orders_location
+        FOREIGN KEY (location_id) REFERENCES locations(id);
+  END IF;
+END $$;
 
 -- Add location_id to menu_items table
 ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS location_id INTEGER DEFAULT 1;
-ALTER TABLE menu_items ADD CONSTRAINT IF NOT EXISTS fk_menu_items_location 
-    FOREIGN KEY (location_id) REFERENCES locations(id);
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'fk_menu_items_location') THEN
+    ALTER TABLE menu_items ADD CONSTRAINT fk_menu_items_location
+        FOREIGN KEY (location_id) REFERENCES locations(id);
+  END IF;
+END $$;
 
 -- Add location_id to inventory_transactions table
 ALTER TABLE inventory_transactions ADD COLUMN IF NOT EXISTS location_id INTEGER DEFAULT 1;
@@ -133,7 +167,7 @@ CREATE INDEX IF NOT EXISTS idx_report_templates_created_by ON report_templates(c
 CREATE INDEX IF NOT EXISTS idx_backup_schedules_created_by ON backup_schedules(created_by);
 CREATE INDEX IF NOT EXISTS idx_backup_history_schedule_id ON backup_history(schedule_id);
 CREATE INDEX IF NOT EXISTS idx_backup_history_status ON backup_history(status);
-CREATE INDEX IF NOT EXISTS idx_backup_history_created_at ON backup_history(created_at);
+CREATE INDEX IF NOT EXISTS idx_backup_history_started_at ON backup_history(started_at);
 
 -- Create default location
 INSERT INTO locations (name, address, city, state, postal_code, phone, is_active) 

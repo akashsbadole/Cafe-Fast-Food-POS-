@@ -140,6 +140,7 @@ const Session = {
     Session.isLoggedIn = false;
     Session.currentUser = null;
     Session.stopIdleTimer();
+    Session.idleTime = 0;
   },
   
   startIdleTimer: () => {

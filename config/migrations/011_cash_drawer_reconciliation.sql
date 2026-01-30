@@ -3,11 +3,11 @@
 
 -- Create cash_drawers table
 CREATE TABLE IF NOT EXISTS cash_drawers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name TEXT NOT NULL,
     location TEXT,
     description TEXT,
-    is_active BOOLEAN DEFAULT 1,
+    is_active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     deleted_at TIMESTAMP
@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS cash_drawers (
 
 -- Create cash_drawer_sessions table
 CREATE TABLE IF NOT EXISTS cash_drawer_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     cash_drawer_id INTEGER NOT NULL,
     opened_by INTEGER NOT NULL,
     opened_at TIMESTAMP NOT NULL,
@@ -34,7 +34,7 @@ CREATE TABLE IF NOT EXISTS cash_drawer_sessions (
 
 -- Create cash_drawer_transactions table
 CREATE TABLE IF NOT EXISTS cash_drawer_transactions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL,
     transaction_type TEXT NOT NULL,
     amount DECIMAL(12, 2) NOT NULL,
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS cash_drawer_transactions (
 
 -- Create cash_drawer_reconciliations table
 CREATE TABLE IF NOT EXISTS cash_drawer_reconciliations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL,
     reconciled_by INTEGER NOT NULL,
     reconciled_at TIMESTAMP NOT NULL,
@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS cash_drawer_reconciliations (
 
 -- Create cash_drawer_audit_logs table
 CREATE TABLE IF NOT EXISTS cash_drawer_audit_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     cash_drawer_id INTEGER,
     session_id INTEGER,
     user_id INTEGER,
@@ -80,19 +80,8 @@ CREATE TABLE IF NOT EXISTS cash_drawer_audit_logs (
 
 -- Update payments table to track cash drawer associations
 -- Add cash_drawer_id and session_id columns if they don't exist
-PRAGMA table_info(payments);
-
--- Check if columns exist before adding them
-SELECT name FROM pragma_table_info('payments') WHERE name = 'cash_drawer_id' INTO @has_cash_drawer_id;
-SELECT name FROM pragma_table_info('payments') WHERE name = 'session_id' INTO @has_session_id;
-
--- Add cash_drawer_id column if it doesn't exist
-SELECT CASE WHEN @has_cash_drawer_id IS NULL THEN 1 ELSE 0 END;
-UPDATE payments SET cash_drawer_id = NULL WHERE cash_drawer_id IS NULL;
-
--- Add session_id column if it doesn't exist
-SELECT CASE WHEN @has_session_id IS NULL THEN 1 ELSE 0 END;
-UPDATE payments SET session_id = NULL WHERE session_id IS NULL;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS cash_drawer_id INTEGER;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS session_id INTEGER;
 
 -- Create indexes for performance
 CREATE INDEX IF NOT EXISTS idx_cash_drawer_sessions_cash_drawer ON cash_drawer_sessions(cash_drawer_id);

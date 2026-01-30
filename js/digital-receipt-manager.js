@@ -5,22 +5,21 @@
  * receipt generation, sending via email/WhatsApp, and tracking delivery status.
  */
 
+console.log('Loading DigitalReceiptManager module');
+
 const { v4: uuidv4 } = require('uuid');
 const path = require('path');
 const fs = require('fs');
-const { Database } = require('./database');
-const { EmailService } = require('./email-service');
-const { WhatsAppService } = require('./whatsapp-service');
-const { Logger } = require('./logger');
-const { OrderManager } = require('./order-manager');
+const logger = require('./logger');
+
+console.log('DigitalReceiptManager dependencies loaded');
 
 class DigitalReceiptManager {
-    constructor() {
-        this.db = new Database();
-        this.emailService = new EmailService();
-        this.whatsappService = new WhatsAppService();
-        this.logger = new Logger('DigitalReceiptManager');
-        this.orderManager = new OrderManager();
+    constructor(database) {
+        this.db = database;
+        this.emailService = null;
+        this.whatsappService = null;
+        this.logger = logger;
     }
 
     /**

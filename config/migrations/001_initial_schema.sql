@@ -68,6 +68,33 @@ CREATE TABLE IF NOT EXISTS order_items (
     FOREIGN KEY (menu_item_id) REFERENCES menu_items(id)
 );
 
+-- Payments table
+CREATE TABLE IF NOT EXISTS payments (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL,
+    amount REAL NOT NULL,
+    payment_method TEXT NOT NULL,
+    transaction_id TEXT,
+    status TEXT DEFAULT 'completed',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (order_id) REFERENCES orders(id)
+);
+
+-- Order holds table
+CREATE TABLE IF NOT EXISTS order_holds (
+    id SERIAL PRIMARY KEY,
+    order_id INTEGER NOT NULL,
+    reason TEXT,
+    held_by INTEGER,
+    held_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    released_at TIMESTAMP,
+    released_by INTEGER,
+    status TEXT DEFAULT 'held',
+    FOREIGN KEY (order_id) REFERENCES orders(id),
+    FOREIGN KEY (held_by) REFERENCES users(id),
+    FOREIGN KEY (released_by) REFERENCES users(id)
+);
+
 -- KOT tickets table
 CREATE TABLE IF NOT EXISTS kot_tickets (
     id SERIAL PRIMARY KEY,

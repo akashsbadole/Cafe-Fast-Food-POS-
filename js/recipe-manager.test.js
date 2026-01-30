@@ -7,6 +7,7 @@ const RecipeManager = require('./recipe-manager');
 
 // Mock database
 const mockDb = {
+    query: sinon.stub(),
     prepare: (query) => {
         return {
             run: sinon.stub(),
@@ -51,22 +52,20 @@ describe('RecipeManager', () => {
     
     describe('Recipe CRUD Operations', () => {
         it('should create a recipe', async () => {
-            const mockRun = { lastInsertRowid: 1 };
-            const prepareStub = sinon.stub().returns({
-                run: sinon.stub().returns(mockRun),
-                get: sinon.stub(),
-                all: sinon.stub()
-            });
-            
-            const manager = new RecipeManager({ prepare: prepareStub }, mockLogger);
-            
+            const queryStub = sinon.stub();
+            queryStub.onCall(0).returns({ rows: [{ id: 1 }] }); // INSERT RETURNING
+            queryStub.onCall(1).returns({}); // UPDATE
+            queryStub.onCall(2).returns({ rows: [{ id: 1, name: 'Test Recipe', menu_item_id: 1, is_active: 1 }] }); // SELECT
+
+            const manager = new RecipeManager({ query: queryStub }, mockLogger);
+
             const recipe = await manager.createRecipe({
                 name: 'Test Recipe',
                 menu_item_id: 1,
                 description: 'Test description',
                 is_active: true
             });
-            
+
             assert.strictEqual(recipe.id, 1);
             assert.strictEqual(recipe.name, 'Test Recipe');
         });

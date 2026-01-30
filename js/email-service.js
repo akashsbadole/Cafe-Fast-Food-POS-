@@ -7,15 +7,13 @@
 
 const nodemailer = require('nodemailer');
 const { v4: uuidv4 } = require('uuid');
-const { Database } = require('./database');
-const { Logger } = require('./logger');
-const { DigitalReceiptManager } = require('./digital-receipt-manager');
+const logger = require('./logger');
 
 class EmailService {
-    constructor() {
-        this.db = new Database();
-        this.logger = new Logger('EmailService');
-        this.digitalReceiptManager = new DigitalReceiptManager();
+    constructor(database, digitalReceiptManager) {
+        this.db = database;
+        this.logger = logger;
+        this.digitalReceiptManager = digitalReceiptManager;
         this.transporter = null;
         this.initTransporter();
     }

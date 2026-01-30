@@ -22,6 +22,10 @@ function posApp() {
     loginError: '',
     lockError: '',
 
+    // Token refresh state
+    isRefreshingToken: false,
+    lastRefreshTime: null,
+
     // UI state
     theme: 'light',
     language: 'en',
@@ -238,39 +242,194 @@ function posApp() {
     showOrderDetailsModal: false,
     orderDetailsHtml: '',
 
-    // Get authentication headers
-    getAuthHeaders() {
-      const token = localStorage.getItem('authToken');
+    // Refresh authentication token
+    async refreshToken() {
+      // Prevent concurrent refresh calls
+      if (this.isRefreshingToken) {
+        console.log('[DEBUG] Client: Refresh already in progress, skipping...');
+        return true; // Assume it will succeed
+      }
+
+      // Prevent refresh too soon after last successful refresh (within 30 seconds)
+      if (this.lastRefreshTime && (Date.now() - this.lastRefreshTime) < 30000) {
+        console.log('[DEBUG] Client: Refresh called too soon, skipping...');
+        return true;
+      }
+
+      this.isRefreshingToken = true;
+
+      try {
+        console.log('[DEBUG] Client: Attempting token refresh at', new Date().toISOString());
+
+        // Don't send expired token to refresh endpoint - use basic headers only
+        const token = localStorage.getItem('authToken');
+        const response = await fetch(`${API_BASE}/api/auth/refresh`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            localStorage.setItem('authToken', result.token);
+            localStorage.setItem('user', JSON.stringify(result.user));
+            this.authToken = result.token;
+            this.currentUser = result.user;
+            this.lastRefreshTime = Date.now();
+            console.log('[DEBUG] Client: Token refreshed successfully at', new Date().toISOString());
+            return true;
+          }
+        }
+        console.error('[DEBUG] Client: Token refresh failed with status:', response.status);
+        return false;
+      } catch (error) {
+        console.error('[DEBUG] Client: Error refreshing token:', error);
+        return false;
+      } finally {
+        this.isRefreshingToken = false;
+      }
+    },
+
+    // Make authenticated API call with automatic token refresh on 403
+    async apiCall(url, options = {}) {
+      const makeRequest = async (retry = false) => {
+        const headers = await this.getAuthHeaders();
+        const requestOptions = {
+          ...options,
+          headers: {
+            ...headers,
+            ...options.headers
+          }
+        };
+
+        const response = await fetch(url, requestOptions);
+
+        // If we get 403 and haven't retried yet, try refreshing token
+        if (response.status === 403 && !retry) {
+          console.log('[DEBUG] Got 403, attempting token refresh...');
+          const refreshed = await this.refreshToken();
+          if (refreshed) {
+            console.log('[DEBUG] Token refreshed, retrying request...');
+            return makeRequest(true); // Retry with new token
+          } else {
+            console.error('[DEBUG] Token refresh failed, user needs to login');
+            this.logout(true);
+            this.showToast('Session expired. Please login again.', 'error');
+            throw new Error('Authentication failed');
+          }
+        }
+
+        // Handle 401 errors (unauthorized)
+        if (response.status === 401) {
+          console.error('[DEBUG] Got 401, user not authenticated');
+          this.logout(true);
+          this.showToast('You are not authenticated. Please login.', 'error');
+          throw new Error('Authentication required');
+        }
+
+        return response;
+      };
+
+      return makeRequest();
+    },
+
+    // Get authentication headers with automatic token refresh
+    async getAuthHeaders() {
+      let token = localStorage.getItem('authToken');
       const headers = {
         'Content-Type': 'application/json'
       };
+
       if (token) {
+        // Check if token is expired or will expire soon (within 30 minutes)
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const now = Math.floor(Date.now() / 1000);
+          const timeToExpiry = payload.exp - now;
+
+          console.log(`[DEBUG] Client: Checking token expiry - expires in ${timeToExpiry} seconds (${new Date(payload.exp * 1000).toISOString()})`);
+
+          if (timeToExpiry < 0) {
+            console.warn('[DEBUG] Client: Token is expired, attempting refresh...');
+            const refreshed = await this.refreshToken();
+            if (refreshed) {
+              token = localStorage.getItem('authToken');
+            } else {
+              // Refresh failed, user needs to login again
+              this.logout();
+              return headers;
+            }
+          } else if (timeToExpiry < 300) { // Less than 5 minutes
+            console.log('[DEBUG] Client: Token expires soon, refreshing proactively...');
+            await this.refreshToken(); // Don't block, refresh in background
+            token = localStorage.getItem('authToken'); // Use potentially refreshed token
+          }
+        } catch (e) {
+          console.error('[DEBUG] Client: Error parsing token:', e);
+        }
+
         headers['Authorization'] = `Bearer ${token}`;
+      } else {
+        console.warn('[DEBUG] Client: No auth token found');
       }
       return headers;
     },
 
     // Initialize application
     init() {
+      // Initialize all arrays to prevent Alpine.js errors
+      this.categories = this.categories || [];
+      this.allItems = this.allItems || [];
+      this.cart = this.cart || [];
+      this.orders = this.orders || [];
+      this.kotTickets = this.kotTickets || [];
+      this.users = this.users || [];
+      this.roles = this.roles || [];
+      this.customers = this.customers || [];
+      this.customerSearchResults = this.customerSearchResults || [];
+      this.lowStockItems = this.lowStockItems || [];
+      this.inventoryHistory = this.inventoryHistory || [];
+      this.tables = this.tables || [];
+      this.stations = this.stations || [];
+      this.kdsTickets = this.kdsTickets || [];
+      this.splitCustomers = this.splitCustomers || [{ id: 1, number: 1, items: [], amount: 0 }];
+      this.cashDrawerHistory = this.cashDrawerHistory || [];
+      this.itemModifiers = this.itemModifiers || [];
+      this.comboComponents = this.comboComponents || [];
+      this.selectedModifiers = this.selectedModifiers || [];
+      this.selectedComboOptions = this.selectedComboOptions || {};
+      this.inventoryCategories = this.inventoryCategories || [];
+      this.inventorySuppliers = this.inventorySuppliers || [];
+
+      // Initialize inventory filter properties
+      this.inventorySearch = this.inventorySearch || '';
+      this.inventoryCategoryFilter = this.inventoryCategoryFilter || '';
+      this.inventoryStatusFilter = this.inventoryStatusFilter || '';
+
       this.loadTheme();
       this.loadLanguage();
       this.startClock();
-      
+
       // Check if user is authenticated before loading protected data
       const authToken = localStorage.getItem('authToken');
       const user = localStorage.getItem('user');
-      
+
       if (authToken && user) {
         this.authToken = authToken;
         this.currentUser = JSON.parse(user);
         this.isLoggedIn = true;
-        
+
         // Load protected data with error handling
         this.loadSettings().catch(err => console.warn('Settings load failed:', err));
         this.loadOrders().catch(err => console.warn('Orders load failed:', err));
         this.loadKOTTickets().catch(err => console.warn('KOT tickets load failed:', err));
-        this.loadUsers().catch(err => console.warn('Users load failed:', err));
-        this.loadRoles().catch(err => console.warn('Roles load failed:', err));
+        if (this.currentUser.role === 'admin') {
+          this.loadUsers().catch(err => console.warn('Users load failed:', err));
+          this.loadRoles().catch(err => console.warn('Roles load failed:', err));
+        }
         this.loadCustomers().catch(err => console.warn('Customers load failed:', err));
         this.loadLowStockItems().catch(err => console.warn('Low stock items load failed:', err));
         this.loadTables().catch(err => console.warn('Tables load failed:', err));
@@ -278,7 +437,7 @@ function posApp() {
         this.loadCashDrawerSession().catch(err => console.warn('Cash drawer session load failed:', err));
         this.loadCashDrawerHistory().catch(err => console.warn('Cash drawer history load failed:', err));
       }
-      
+
       this.loadMenuData();
       this.setupAutoLock();
       this.setupShortcuts();
@@ -289,19 +448,38 @@ function posApp() {
       this.reportDateRange = { start: today, end: today };
 
       // Global Error Handler
-      window.onerror = (msg, url, lineNo, columnNo, error) => {
+      window.onerror = (msg, _url, _lineNo, _columnNo, error) => {
         console.error('Global Error:', error);
+
+        // Filter out Alpine.js internal errors to prevent spam
+        if (msg && (msg.includes('alpine.min.js') || msg.includes('Cannot read properties of undefined'))) {
+          console.warn('Alpine.js internal error filtered:', msg);
+          return true; // Prevent default error handling
+        }
+
         this.showToast('An unexpected error occurred', 'error');
         return false;
       };
+
+      // Handle unhandled promise rejections
+      window.addEventListener('unhandledrejection', (event) => {
+        console.error('Unhandled promise rejection:', event.reason);
+
+        // Filter out common Alpine.js errors
+        if (event.reason && event.reason.message && event.reason.message.includes('alpine')) {
+          console.warn('Alpine.js promise rejection filtered:', event.reason);
+          event.preventDefault();
+          return;
+        }
+
+        this.showToast('An unexpected error occurred', 'error');
+      });
     },
 
     // --- Settings Methods ---
     async loadSettings() {
       try {
-        const res = await fetch(`${API_BASE}/api/settings`, {
-          headers: this.getAuthHeaders()
-        });
+        const res = await this.apiCall(`${API_BASE}/api/settings`);
         if (res.ok) {
           this.appSettings = await res.json();
           this.updateReceiptPreview(); // Update preview after loading settings
@@ -315,20 +493,20 @@ function posApp() {
     // Validate settings form
     validateSettings(tab) {
       const errors = {};
-      
+
       if (tab === 'business') {
         if (!this.appSettings.business_name || this.appSettings.business_name.trim() === '') {
           errors.business_name = 'Business name is required';
         }
       }
-      
+
       if (tab === 'tax') {
         const taxRate = parseFloat(this.appSettings.tax_rate);
         if (isNaN(taxRate) || taxRate < 0) {
           errors.tax_rate = 'Tax rate must be a positive number';
         }
       }
-      
+
       this.settingsErrors = errors;
       return Object.keys(errors).length === 0;
     },
@@ -339,7 +517,7 @@ function posApp() {
         this.showToast('Please fix the errors before saving', 'error');
         return;
       }
-      
+
       this.isSavingSettings = true;
       try {
         localStorage.setItem('theme', this.theme);
@@ -360,12 +538,11 @@ function posApp() {
         this.showToast('Please fix the errors before saving', 'error');
         return;
       }
-      
+
       this.isSavingSettings = true;
       try {
-        const res = await fetch(`${API_BASE}/api/settings`, {
+        const res = await this.apiCall(`${API_BASE}/api/settings`, {
           method: 'PUT',
-          headers: this.getAuthHeaders(),
           body: JSON.stringify(this.appSettings)
         });
 
@@ -389,12 +566,12 @@ function posApp() {
         this.showToast('Please fix the errors before saving', 'error');
         return;
       }
-      
+
       this.isSavingSettings = true;
       try {
         const res = await fetch(`${API_BASE}/api/settings`, {
           method: 'PUT',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(this.appSettings)
         });
 
@@ -417,7 +594,7 @@ function posApp() {
       try {
         const res = await fetch(`${API_BASE}/api/settings`, {
           method: 'PUT',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(this.appSettings)
         });
 
@@ -511,7 +688,7 @@ function posApp() {
     setupSettingsKeyboardNavigation() {
       document.addEventListener('keydown', (e) => {
         if (!this.showSettings) return;
-        
+
         // Save with Ctrl+S
         if (e.ctrlKey && e.key === 's') {
           e.preventDefault();
@@ -526,12 +703,12 @@ function posApp() {
             this.updateSettings();
           }
         }
-        
+
         // Close with Escape
         if (e.key === 'Escape') {
           this.showSettings = false;
         }
-        
+
         // Tab navigation between tabs
         if (e.key === 'ArrowRight') {
           e.preventDefault();
@@ -541,7 +718,7 @@ function posApp() {
             this.activeSettingsTab = tabs[currentIndex + 1];
           }
         }
-        
+
         if (e.key === 'ArrowLeft') {
           e.preventDefault();
           const tabs = ['general', 'business', 'receipt', 'tax', 'data', 'system'];
@@ -588,6 +765,13 @@ function posApp() {
         // Load menu items
         const itemsResponse = await fetch(`${API_BASE}/api/menu-items`);
         this.allItems = await itemsResponse.json();
+
+        // Ensure cost_price and selling_price have default values
+        this.allItems = this.allItems.map(item => ({
+          ...item,
+          cost_price: item.cost_price || 0,
+          selling_price: item.selling_price || 0
+        }));
       } catch (error) {
         console.error('Error loading menu data:', error);
         this.showToast('Failed to load menu data. Using fallback.', 'error');
@@ -618,11 +802,10 @@ function posApp() {
     // Load orders
     async loadOrders() {
       try {
-        const response = await fetch(`${API_BASE}/api/orders`, {
-          headers: this.getAuthHeaders()
-        });
-        if (response.status === 401) { return; } // Token expired or invalid
-        this.orders = await response.json();
+        const response = await this.apiCall(`${API_BASE}/api/orders`);
+        if (response.ok) {
+          this.orders = await response.json();
+        }
       } catch (error) {
         console.error('Error loading orders:', error);
         this.showToast('Failed to load orders.', 'error');
@@ -634,7 +817,7 @@ function posApp() {
     async loadKOTTickets() {
       try {
         const response = await fetch(`${API_BASE}/api/kot`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         this.kotTickets = await response.json();
 
@@ -657,6 +840,11 @@ function posApp() {
 
     // Computed: filtered items
     get filteredItems() {
+      // Defensive check to prevent errors
+      if (!Array.isArray(this.allItems)) {
+        return [];
+      }
+
       const query = this.searchQuery ? this.searchQuery.toLowerCase() : '';
 
       return this.allItems.filter(item => {
@@ -676,8 +864,54 @@ function posApp() {
       });
     },
 
+    // Computed: filtered inventory items
+    get filteredInventoryItems() {
+      // Defensive check to prevent errors
+      if (!Array.isArray(this.allItems)) {
+        return [];
+      }
+
+      return this.allItems.filter(item => {
+        // Filter by search
+        if (this.inventorySearch) {
+          const query = this.inventorySearch.toLowerCase();
+          if (!item.name.toLowerCase().includes(query) &&
+            !item.category_name?.toLowerCase().includes(query)) {
+            return false;
+          }
+        }
+
+        // Filter by category
+        if (this.inventoryCategoryFilter && item.category_id != this.inventoryCategoryFilter) {
+          return false;
+        }
+
+        // Filter by status
+        if (this.inventoryStatusFilter) {
+          const hasStock = item.stock_quantity > 0;
+          const isLowStock = item.stock_quantity <= (item.low_stock_threshold || 0);
+
+          switch (this.inventoryStatusFilter) {
+            case 'in-stock':
+              return hasStock && !isLowStock;
+            case 'low-stock':
+              return isLowStock && hasStock;
+            case 'out-of-stock':
+              return !hasStock;
+          }
+        }
+
+        return true;
+      });
+    },
+
     // Computed: filtered orders
     get filteredOrders() {
+      // Defensive check to prevent errors
+      if (!Array.isArray(this.orders)) {
+        return [];
+      }
+
       const today = new Date().toISOString().split('T')[0];
       const query = this.orderSearch ? this.orderSearch.toLowerCase() : '';
 
@@ -762,9 +996,13 @@ function posApp() {
       }
 
       const afterDiscount = Math.max(0, this.subtotal - this.discountAmount);
-      const taxRate = parseFloat(this.appSettings.tax_rate) || 0;
+      const taxRate = parseFloat(this.appSettings.tax_rate) || 9; // Default to 9% if not set
       this.taxAmount = afterDiscount * (taxRate / 100);
       this.totalAmount = afterDiscount + this.taxAmount;
+
+      // Ensure all values are valid numbers
+      if (isNaN(this.taxAmount)) this.taxAmount = 0;
+      if (isNaN(this.totalAmount)) this.totalAmount = 0;
     },
 
     // Formatting helpers
@@ -776,22 +1014,32 @@ function posApp() {
     // Format date
     formatDate(dateString) {
       if (!dateString) return '';
-      const date = new Date(dateString);
-      const day = date.getDate();
-      const month = date.toLocaleString('default', { month: 'short' });
-      const year = date.getFullYear();
-      return `${day}-${month}-${year}`;
+      try {
+        const date = new Date(dateString);
+        const day = date.getDate();
+        const month = date.toLocaleString('default', { month: 'short' });
+        const year = date.getFullYear();
+        return `${day}-${month}-${year}`;
+      } catch (e) {
+        console.error('Error formatting date:', e);
+        return '';
+      }
     },
 
     // Format time
     formatTime(dateString) {
       if (!dateString) return '';
-      const date = new Date(dateString);
-      return date.toLocaleString('default', {
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-      });
+      try {
+        const date = new Date(dateString);
+        return date.toLocaleString('default', {
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true
+        });
+      } catch (e) {
+        console.error('Error formatting time:', e);
+        return '';
+      }
     },
 
     // Format date time
@@ -871,15 +1119,25 @@ function posApp() {
     },
 
     // Logout
-    logout() {
-      if (confirm('Are you sure you want to logout?')) {
+    logout(force = false) {
+      if (force || confirm('Are you sure you want to logout?')) {
         this.isLoggedIn = false;
         this.isLocked = false;
+        this.currentUser = null;
+        this.authToken = null;
         this.cart = [];
         this.pinString = '';
         this.lockPinString = '';
+        this.username = '';
+        this.availableUsers = [];
+        this.loginError = '';
+        this.lockError = '';
         localStorage.removeItem('authToken');
         localStorage.removeItem('user');
+
+        if (force) {
+          this.showToast('Session expired. Please login again.', 'info');
+        }
       }
     },
 
@@ -901,7 +1159,7 @@ function posApp() {
     // Auto-lock setup
     setupAutoLock() {
       let idleTime = 0;
-      const idleInterval = setInterval(() => {
+      setInterval(() => {
         idleTime += 1000;
         if (idleTime >= 120000 && this.isLoggedIn) { // 2 minutes
           this.isLocked = true;
@@ -924,46 +1182,42 @@ function posApp() {
 
       try {
         const orderData = {
-          orderNumber: await this.generateOrderNumber(),
-          subtotal: this.subtotal,
-          discountAmount: this.discountAmount,
-          discountType: this.discountType,
-          taxAmount: this.taxAmount,
-          totalAmount: this.totalAmount,
-          paymentMode: this.paymentMode,
-          paymentStatus: 'unpaid',
-          status: 'pending',
-          notes: this.orderNotes,
-          customerId: this.selectedCustomer?.id
-        };
+      order_number: await this.generateOrderNumber(),
+      items: this.cart.map(item => ({
+        id: item.id,
+        quantity: item.quantity,
+        price: item.price,
+        total_price: item.price * item.quantity,
+        notes: item.notes || ''
+      })),
+      subtotal: this.subtotal,
+      discount_amount: this.discountAmount,
+      discount_type: this.discountType,
+      tax_amount: this.taxAmount,
+      total_amount: this.totalAmount,
+      payment_mode: this.paymentMode,
+      payment_status: 'unpaid',
+      status: 'pending',
+      notes: this.orderNotes,
+      customer_id: this.selectedCustomer?.id
+    };
 
-        const response = await fetch(`${API_BASE}/api/orders`, {
-          method: 'POST',
-          headers: this.getAuthHeaders(),
-          body: JSON.stringify(orderData)
-        });
+    const response = await this.apiCall(`${API_BASE}/api/orders`, {
+      method: 'POST',
+      body: JSON.stringify(orderData)
+    });
 
         const result = await response.json();
 
-        if (result.success) {
-          // Add items
-          for (const item of this.cart) {
-            await fetch(`${API_BASE}/api/orders/${result.id}/items`, {
-              method: 'POST',
-              headers: this.getAuthHeaders(),
-              body: JSON.stringify({
-                menuItemId: item.id,
-                quantity: item.quantity,
-                unitPrice: item.price,
-                totalPrice: item.price * item.quantity,
-                notes: item.notes
-              })
-            });
-          }
+    if (result && result.id) {
+      this.currentOrder = result;
+      this.generateBillHtml(this.currentOrder);
+      this.showBill = true;
 
-          this.currentOrder = { ...orderData, id: result.id, items: this.cart };
-          this.generateBillHtml(this.currentOrder);
-          this.showBill = true;
+          // Clear data after success
+          this.cart = [];
+          this.orderNotes = '';
+          // (Optionally keep selected customer)
         } else {
           this.showToast('Failed to create order: ' + (result.error || 'Unknown error'), 'error');
         }
@@ -984,7 +1238,7 @@ function posApp() {
       try {
         await fetch(`${API_BASE}/api/orders/${order.id}`, {
           method: 'PUT',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(order)
         });
       } catch (error) {
@@ -1011,13 +1265,22 @@ function posApp() {
       }
     },
 
-    selectCustomer(cx) {
+    async selectCustomer(cx) {
+      // Add null safety check
+      if (!cx) {
+        console.warn('[DEBUG] selectCustomer called with null/undefined customer');
+        this.selectedCustomer = null;
+        this.customerSearchQuery = '';
+        this.showCustomerResults = false;
+        return;
+      }
+
       this.selectedCustomer = cx;
       this.customerSearchQuery = cx.name ? `${cx.name} (${cx.phone})` : cx.phone;
       this.showCustomerResults = false;
     },
 
-    clearCustomer() {
+    async clearCustomer() {
       this.selectedCustomer = null;
       this.customerSearchQuery = '';
       this.showCustomerResults = false;
@@ -1025,22 +1288,40 @@ function posApp() {
 
     async createCustomer() {
       try {
+        console.log('[DEBUG] Creating customer with data:', this.newCustomer);
         const res = await fetch(`${API_BASE}/api/customers`, {
           method: 'POST',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(this.newCustomer)
         });
 
+        console.log('[DEBUG] Customer creation response status:', res.status);
+
         if (res.ok) {
           const cx = await res.json();
-          this.selectCustomer(cx);
-          this.showAddCustomerForm = false;
-          this.newCustomer = { name: '', phone: '' };
+          console.log('[DEBUG] Customer creation response data:', cx);
+          
+          // Validate that we received a valid customer object
+          if (cx && (cx.name || cx.phone)) {
+            this.selectCustomer(cx);
+            this.showAddCustomerForm = false;
+            this.newCustomer = { name: '', phone: '' };
+          } else {
+            console.warn('[DEBUG] Invalid customer response:', cx);
+            this.showToast('Failed to create customer: Invalid response', 'error');
+          }
         } else {
-          const err = await res.json();
-          alert(err.error);
+          const responseText = await res.text();
+          console.log('[DEBUG] Customer creation response text:', responseText);
+          try {
+            const err = JSON.parse(responseText);
+            alert(err.error);
+          } catch (parseError) {
+            alert('Failed to add customer: ' + responseText);
+          }
         }
       } catch (e) {
+        console.error('[DEBUG] Error in createCustomer:', e);
         alert('Failed to add customer');
       }
     },
@@ -1074,7 +1355,7 @@ function posApp() {
       try {
         const response = await fetch(`${API_BASE}/api/kot`, {
           method: 'POST',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify({
             items: this.cart,
             subtotal: this.subtotal,
@@ -1108,7 +1389,7 @@ function posApp() {
       try {
         await fetch(`${API_BASE}/api/kot/${ticketId}`, {
           method: 'PUT',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify({ status })
         });
 
@@ -1142,6 +1423,11 @@ function posApp() {
       ).join('');
 
       const orderNotesHtml = order.notes ? `<div class="bill-order-notes"><strong>Note:</strong> ${order.notes}</div>` : '';
+
+      // Ensure order has created_at timestamp
+      if (!order.created_at) {
+        order.created_at = new Date().toISOString();
+      }
 
       this.billHtml = `
         <div class="bill-content" style="font-size: ${fontSize}">
@@ -1195,7 +1481,7 @@ function posApp() {
     // Print bill
     printBill() {
       const printWindow = window.open('', '_blank');
-      printWindow.document.write(`
+      const billContent = `
         <!DOCTYPE html>
         <html>
           <head>
@@ -1219,7 +1505,9 @@ function posApp() {
           </head>
           <body>${this.billHtml}</body>
         </html>
-      `);
+      `;
+      printWindow.document.open();
+      printWindow.document.write(billContent);
       printWindow.document.close();
       printWindow.focus();
       setTimeout(() => { printWindow.print(); printWindow.close(); }, 250);
@@ -1305,7 +1593,7 @@ function posApp() {
 
         await fetch(url, {
           method,
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(this.categoryForm)
         });
 
@@ -1375,7 +1663,7 @@ function posApp() {
 
         const response = await fetch(url, {
           method,
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(body)
         });
 
@@ -1400,7 +1688,7 @@ function posApp() {
       try {
         const response = await fetch(`${API_BASE}/api/users/${id}`, {
           method: 'DELETE',
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         if (response.ok) {
@@ -1419,7 +1707,7 @@ function posApp() {
     async downloadBackup() {
       try {
         const response = await fetch(`${API_BASE}/api/backup`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         if (response.ok) {
@@ -1546,7 +1834,7 @@ function posApp() {
 
         await fetch(url, {
           method,
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(this.itemForm)
         });
 
@@ -1574,7 +1862,7 @@ function posApp() {
         try {
           await fetch(`${API_BASE}/api/categories/${id}`, {
             method: 'DELETE',
-            headers: this.getAuthHeaders()
+            headers: await this.getAuthHeaders()
           });
           this.loadMenuData();
         } catch (error) {
@@ -1588,7 +1876,7 @@ function posApp() {
     async exportData(type) {
       try {
         const response = await fetch(`${API_BASE}/api/export/${type}`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         if (!response.ok) throw new Error('Export failed');
@@ -1718,7 +2006,7 @@ function posApp() {
     async loadItemModifiers(itemId) {
       try {
         const response = await fetch(`${API_BASE}/api/modifiers/item/${itemId}`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.itemModifiers = await response.json();
@@ -1732,7 +2020,7 @@ function posApp() {
     async loadComboComponents(itemId) {
       try {
         const response = await fetch(`${API_BASE}/api/combo-components/item/${itemId}`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.comboComponents = await response.json();
@@ -1749,7 +2037,7 @@ function posApp() {
       }
     },
 
-    toggleModifier(modifierId, price) {
+    toggleModifier(modifierId, _price) {
       const index = this.selectedModifiers.indexOf(modifierId);
       if (index > -1) {
         this.selectedModifiers.splice(index, 1);
@@ -1807,7 +2095,7 @@ function posApp() {
     async loadUsers() {
       try {
         const response = await fetch(`${API_BASE}/api/users`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.users = await response.json();
@@ -1820,7 +2108,7 @@ function posApp() {
     async loadRoles() {
       try {
         const response = await fetch(`${API_BASE}/api/roles`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.roles = await response.json();
@@ -1864,7 +2152,7 @@ function posApp() {
           method,
           headers: {
             'Content-Type': 'application/json',
-            ...this.getAuthHeaders()
+            ...(await this.getAuthHeaders())
           },
           body: JSON.stringify(this.userForm)
         });
@@ -1889,7 +2177,7 @@ function posApp() {
       try {
         const response = await fetch(`${API_BASE}/api/users/${userId}`, {
           method: 'DELETE',
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         if (response.ok) {
@@ -1909,7 +2197,7 @@ function posApp() {
     async loadCustomers() {
       try {
         const response = await fetch(`${API_BASE}/api/customers`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.customers = await response.json();
@@ -1946,7 +2234,7 @@ function posApp() {
           method,
           headers: {
             'Content-Type': 'application/json',
-            ...this.getAuthHeaders()
+            ...(await this.getAuthHeaders())
           },
           body: JSON.stringify(this.customerForm)
         });
@@ -1970,7 +2258,7 @@ function posApp() {
     async loadLowStockItems() {
       try {
         const response = await fetch(`${API_BASE}/api/inventory/low-stock`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.lowStockItems = await response.json();
@@ -1982,11 +2270,11 @@ function posApp() {
 
     async adjustStock(itemId) {
       try {
-        const response = await fetch(`${API_BASE}/api/inventory/${itemId}`, {
-          method: 'PUT',
+        const response = await fetch(`${API_BASE}/api/menu-items/${itemId}/adjust-stock`, {
+          method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...this.getAuthHeaders()
+            ...(await this.getAuthHeaders())
           },
           body: JSON.stringify(this.stockAdjustment)
         });
@@ -2009,7 +2297,7 @@ function posApp() {
     async loadInventoryHistory(itemId) {
       try {
         const response = await fetch(`${API_BASE}/api/inventory/history/${itemId}`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.inventoryHistory = await response.json();
@@ -2048,7 +2336,7 @@ function posApp() {
         }
 
         const response = await fetch(`${API_BASE}${endpoint}`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         if (response.ok) {
@@ -2067,7 +2355,7 @@ function posApp() {
     async exportReport(type) {
       try {
         const response = await fetch(`${API_BASE}/api/reports/export/${type}?start_date=${this.reportStartDate}&end_date=${this.reportEndDate}`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         if (response.ok) {
@@ -2093,7 +2381,7 @@ function posApp() {
     async downloadBackup() {
       try {
         const response = await fetch(`${API_BASE}/api/backup`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         if (response.ok) {
@@ -2133,7 +2421,7 @@ function posApp() {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            ...this.getAuthHeaders()
+            ...(await this.getAuthHeaders())
           },
           body: JSON.stringify(backupData)
         });
@@ -2157,7 +2445,7 @@ function posApp() {
     async loadTables() {
       try {
         const response = await fetch(`${API_BASE}/api/tables`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.tables = await response.json();
@@ -2187,7 +2475,7 @@ function posApp() {
 
         const response = await fetch(url, {
           method,
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(this.tableForm)
         });
 
@@ -2212,7 +2500,7 @@ function posApp() {
       try {
         const response = await fetch(`${API_BASE}/api/tables/${id}`, {
           method: 'DELETE',
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         if (response.ok) {
@@ -2253,7 +2541,7 @@ function posApp() {
 
         const response = await fetch(`${API_BASE}/api/orders`, {
           method: 'POST',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(orderData)
         });
 
@@ -2264,7 +2552,7 @@ function posApp() {
           for (const item of this.cart) {
             await fetch(`${API_BASE}/api/orders/${result.id}/items`, {
               method: 'POST',
-              headers: this.getAuthHeaders(),
+              headers: await this.getAuthHeaders(),
               body: JSON.stringify({
                 menuItemId: item.id,
                 quantity: item.quantity,
@@ -2278,7 +2566,7 @@ function posApp() {
           // Update table status
           await fetch(`${API_BASE}/api/tables/${table.id}`, {
             method: 'PUT',
-            headers: this.getAuthHeaders(),
+            headers: await this.getAuthHeaders(),
             body: JSON.stringify({ status: 'occupied' })
           });
 
@@ -2294,7 +2582,7 @@ function posApp() {
       }
     },
 
-    async transferOrder(table) {
+    async transferOrder(_table) {
       // Implementation for transferring existing orders between tables
       this.showToast('Transfer functionality coming soon', 'info');
     },
@@ -2306,13 +2594,13 @@ function posApp() {
         // Clear any pending orders for this table
         await fetch(`${API_BASE}/api/tables/${table.id}/clear`, {
           method: 'POST',
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         // Update table status
         await fetch(`${API_BASE}/api/tables/${table.id}`, {
           method: 'PUT',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify({ status: 'available' })
         });
 
@@ -2328,7 +2616,7 @@ function posApp() {
     async loadStations() {
       try {
         const response = await fetch(`${API_BASE}/api/kds/stations`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.stations = await response.json();
@@ -2358,7 +2646,7 @@ function posApp() {
 
         const response = await fetch(url, {
           method,
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify(this.stationForm)
         });
 
@@ -2383,7 +2671,7 @@ function posApp() {
       try {
         const response = await fetch(`${API_BASE}/api/kds/stations/${id}`, {
           method: 'DELETE',
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         if (response.ok) {
@@ -2501,7 +2789,7 @@ function posApp() {
         // Process split billing
         const response = await fetch(`${API_BASE}/api/split-billing`, {
           method: 'POST',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify({
             orderId: this.currentOrder?.id,
             splitData: splitData,
@@ -2532,7 +2820,7 @@ function posApp() {
     async loadCashDrawerSession() {
       try {
         const response = await fetch(`${API_BASE}/api/cash-drawer/session`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.cashDrawerSession = await response.json();
@@ -2545,7 +2833,7 @@ function posApp() {
     async loadCashDrawerHistory() {
       try {
         const response = await fetch(`${API_BASE}/api/cash-drawer/history`, {
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
         if (response.ok) {
           this.cashDrawerHistory = await response.json();
@@ -2559,7 +2847,7 @@ function posApp() {
       try {
         const response = await fetch(`${API_BASE}/api/cash-drawer/start`, {
           method: 'POST',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify({ floatAmount: 1000 })
         });
 
@@ -2581,7 +2869,7 @@ function posApp() {
       try {
         const response = await fetch(`${API_BASE}/api/cash-drawer/end`, {
           method: 'POST',
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         const result = await response.json();
@@ -2603,7 +2891,7 @@ function posApp() {
       try {
         const response = await fetch(`${API_BASE}/api/cash-drawer/reconcile`, {
           method: 'POST',
-          headers: this.getAuthHeaders()
+          headers: await this.getAuthHeaders()
         });
 
         const result = await response.json();
@@ -2634,7 +2922,7 @@ function posApp() {
       try {
         const response = await fetch(`${API_BASE}/api/void-refund`, {
           method: 'POST',
-          headers: this.getAuthHeaders(),
+          headers: await this.getAuthHeaders(),
           body: JSON.stringify({
             orderNumber: this.voidRefundOrderNumber,
             reason: this.voidRefundReason === 'other' ? this.voidRefundOtherReason : this.voidRefundReason,
@@ -2681,6 +2969,556 @@ function posApp() {
 
     formatNumber(number) {
       return new Intl.NumberFormat().format(number);
+    },
+
+    // =================== ENHANCED INVENTORY MANAGEMENT ===================
+
+    // Inventory Management State
+    inventoryTab: 'overview',
+    inventorySearch: '',
+    inventoryCategoryFilter: '',
+    inventoryStatusFilter: '',
+    inventoryCategories: [],
+    inventorySuppliers: [],
+    inventoryForm: {
+      name: '',
+      category_id: '',
+      stock_quantity: 0,
+      low_stock_threshold: 5,
+      cost_price: 0,
+      selling_price: 0,
+      unit: 'piece',
+      supplier_id: '',
+      description: ''
+    },
+    inventoryStats: {
+      totalItems: 0,
+      lowStockCount: 0,
+      outOfStockCount: 0,
+      totalValue: 0
+    },
+    selectedInventoryItem: null,
+    stockAdjustment: {
+      type: 'add',
+      quantity: 0,
+      reason: ''
+    },
+    importFileName: '',
+    importOptions: {
+      updateExisting: false,
+      validateOnly: false
+    },
+    importPreview: [],
+    importResults: { summary: { created: 0, updated: 0, errors: 0 }, errors: [] },
+    showCategoryFormModal: false,
+    showSupplierFormModal: false,
+    showStockAdjustmentModal: false,
+    editingCategory: null,
+    editingSupplier: null,
+    categoryForm: { name: '', description: '' },
+    supplierForm: {
+      name: '',
+      contact_person: '',
+      phone: '',
+      email: '',
+      address: '',
+      notes: ''
+    },
+
+    // Computed: Filtered inventory items
+    get filteredInventoryItems() {
+      // Defensive check to prevent errors
+      if (!Array.isArray(this.allItems)) {
+        return [];
+      }
+
+      return this.allItems.filter(item => {
+        // Filter by search
+        if (this.inventorySearch) {
+          const query = this.inventorySearch.toLowerCase();
+          if (!item.name.toLowerCase().includes(query) &&
+            !item.category_name?.toLowerCase().includes(query)) {
+            return false;
+          }
+        }
+
+        // Filter by category
+        if (this.inventoryCategoryFilter && item.category_id != this.inventoryCategoryFilter) {
+          return false;
+        }
+
+        // Filter by status
+        if (this.inventoryStatusFilter) {
+          const hasStock = item.stock_quantity > 0;
+          const isLowStock = item.stock_quantity <= (item.low_stock_threshold || 0);
+
+          switch (this.inventoryStatusFilter) {
+            case 'in-stock':
+              return hasStock && !isLowStock;
+            case 'low-stock':
+              return isLowStock && hasStock;
+            case 'out-of-stock':
+              return !hasStock;
+          }
+        }
+
+        return true;
+      });
+    },
+
+    // Load inventory data
+    async loadInventoryData() {
+      try {
+        // Load categories (use existing categories endpoint)
+        const categoriesRes = await fetch(`${API_BASE}/api/categories`, {
+          headers: await this.getAuthHeaders()
+        });
+        if (categoriesRes.ok) {
+          this.inventoryCategories = await categoriesRes.json();
+        }
+
+        // Load suppliers (if available)
+        try {
+          const suppliersRes = await fetch(`${API_BASE}/api/suppliers`, {
+            headers: await this.getAuthHeaders()
+          });
+          if (suppliersRes.ok) {
+            this.inventorySuppliers = await suppliersRes.json();
+          }
+        } catch (error) {
+          console.log('Suppliers endpoint not available, continuing without suppliers');
+          this.inventorySuppliers = [];
+        }
+
+        // Load low stock items
+        await this.loadLowStockItems();
+
+        // Calculate stats
+        await this.calculateInventoryStats();
+      } catch (error) {
+        console.error('Error loading inventory data:', error);
+        this.showToast('Failed to load inventory data', 'error');
+      }
+    },
+
+    // Calculate inventory statistics
+    async calculateInventoryStats() {
+      try {
+        // Try to get stats from API first
+        const response = await fetch(`${API_BASE}/api/inventory/stats`, {
+          headers: await this.getAuthHeaders()
+        });
+
+        if (response.ok) {
+          this.inventoryStats = await response.json();
+        } else {
+          // Fallback calculation using menu items
+          const items = this.allItems.filter(item => item.stock_quantity !== null);
+          this.inventoryStats.totalItems = items.length;
+          this.inventoryStats.lowStockCount = items.filter(item =>
+            item.stock_quantity <= (item.low_stock_threshold || 0)
+          ).length;
+          this.inventoryStats.outOfStockCount = items.filter(item =>
+            item.stock_quantity === 0
+          ).length;
+          this.inventoryStats.totalValue = items.reduce((sum, item) =>
+            sum + (item.price || 0) * (item.stock_quantity || 0), 0
+          );
+        }
+      } catch (error) {
+        console.error('Error calculating inventory stats:', error);
+        // Fallback calculation using menu items
+        const items = this.allItems.filter(item => item.stock_quantity !== null);
+        this.inventoryStats.totalItems = items.length;
+        this.inventoryStats.lowStockCount = items.filter(item =>
+          item.stock_quantity <= (item.low_stock_threshold || 0)
+        ).length;
+        this.inventoryStats.outOfStockCount = items.filter(item =>
+          item.stock_quantity === 0
+        ).length;
+        this.inventoryStats.totalValue = items.reduce((sum, item) =>
+          sum + (item.price || 0) * (item.stock_quantity || 0), 0
+        );
+      }
+    },
+
+    // Save inventory item
+    async saveInventoryItem() {
+      try {
+        const method = this.editingInventoryItem ? 'PUT' : 'POST';
+        const url = this.editingInventoryItem
+          ? `${API_BASE}/api/menu-items/${this.editingInventoryItem.id}`
+          : `${API_BASE}/api/menu-items`;
+
+        // Prepare form data, converting empty supplier_id to null and mapping to menu item fields
+        const formData = {
+          category_id: this.inventoryForm.category_id,
+          name: this.inventoryForm.name,
+          price: this.inventoryForm.selling_price || 0,
+          description: this.inventoryForm.description,
+          is_available: 1,
+          stock_quantity: this.inventoryForm.stock_quantity,
+          low_stock_threshold: this.inventoryForm.low_stock_threshold
+        };
+
+        const response = await fetch(url, {
+          method,
+          headers: await this.getAuthHeaders(),
+          body: JSON.stringify(formData)
+        });
+
+        if (response.ok) {
+          await this.loadInventoryData();
+          await this.loadMenuData(); // Refresh menu items
+          this.resetInventoryForm();
+          this.showToast('Inventory item saved successfully', 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error saving inventory item:', error);
+        this.showToast('Failed to save inventory item', 'error');
+      }
+    },
+
+    // Initialize stock quantities for all menu items
+    async initializeStockQuantities() {
+      try {
+        const response = await fetch(`${API_BASE}/api/initialize-stock`, {
+          method: 'POST',
+          headers: await this.getAuthHeaders()
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          await this.loadMenuData(); // Refresh menu items
+          await this.loadInventoryData(); // Refresh inventory data
+          this.showToast(result.message, 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error initializing stock quantities:', error);
+        this.showToast('Failed to initialize stock quantities', 'error');
+      }
+    },
+
+    // Edit inventory item
+    editInventoryItem(item) {
+      this.editingInventoryItem = item;
+      this.inventoryForm = {
+        name: item.name,
+        category_id: item.category_id,
+        stock_quantity: item.stock_quantity || 0,
+        low_stock_threshold: item.low_stock_threshold || 5,
+        cost_price: item.cost_price || 0,
+        selling_price: item.price || 0, // Use price field from menu_items
+        unit: item.unit || 'piece',
+        supplier_id: item.supplier_id || '',
+        description: item.description || ''
+      };
+      this.inventoryTab = 'add-item';
+    },
+
+    // Delete inventory item
+    async deleteInventoryItem(itemId) {
+      if (!confirm('Are you sure you want to delete this inventory item?')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/menu-items/${itemId}`, {
+          method: 'DELETE',
+          headers: await this.getAuthHeaders()
+        });
+
+        if (response.ok) {
+          await this.loadInventoryData();
+          await this.loadMenuData();
+          this.showToast('Inventory item deleted successfully', 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting inventory item:', error);
+        this.showToast('Failed to delete inventory item', 'error');
+      }
+    },
+
+    // Reset inventory form
+    resetInventoryForm() {
+      this.editingInventoryItem = null;
+      this.inventoryForm = {
+        name: '',
+        category_id: '',
+        stock_quantity: 0,
+        low_stock_threshold: 5,
+        cost_price: 0,
+        selling_price: 0,
+        unit: 'piece',
+        supplier_id: '',
+        description: ''
+      };
+    },
+
+    // Stock adjustment modal
+    adjustStockModal(item) {
+      this.selectedInventoryItem = item;
+      this.stockAdjustment = {
+        type: 'add',
+        quantity: 0,
+        reason: ''
+      };
+      this.showStockAdjustmentModal = true;
+    },
+
+    // Save stock adjustment
+    async saveStockAdjustment() {
+      if (!this.stockAdjustment.reason || this.stockAdjustment.quantity <= 0) {
+        this.showToast('Please provide reason and valid quantity', 'error');
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE}/api/menu-items/${this.selectedInventoryItem.id}/adjust-stock`, {
+          method: 'POST',
+          headers: await this.getAuthHeaders(),
+          body: JSON.stringify(this.stockAdjustment)
+        });
+
+        if (response.ok) {
+          await this.loadInventoryData();
+          await this.loadMenuData();
+          this.showStockAdjustmentModal = false;
+          this.showToast('Stock adjusted successfully', 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error adjusting stock:', error);
+        this.showToast('Failed to adjust stock', 'error');
+      }
+    },
+
+    // Reorder item
+    async reorderItem(item) {
+      const reorderQuantity = Math.max(10, (item.low_stock_threshold || 5) * 2);
+      this.selectedInventoryItem = item;
+      this.stockAdjustment = {
+        type: 'add',
+        quantity: reorderQuantity,
+        reason: 'Reorder: ' + item.name
+      };
+      this.showStockAdjustmentModal = true;
+    },
+
+    // Category management
+    showCategoryForm(category = null) {
+      this.editingCategory = category;
+      if (category) {
+        this.categoryForm = { name: category.name, description: category.description };
+      } else {
+        this.categoryForm = { name: '', description: '' };
+      }
+      this.showCategoryFormModal = true;
+    },
+
+    async saveCategory() {
+      this.showToast('Category management is handled through menu categories', 'info');
+      this.showCategoryFormModal = false;
+      this.editingCategory = null;
+    },
+
+    async deleteCategory(categoryId) {
+      if (!confirm('Are you sure you want to delete this category?')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/inventory/categories/${categoryId}`, {
+          method: 'DELETE',
+          headers: this.getAuthHeaders()
+        });
+
+        if (response.ok) {
+          await this.loadInventoryData();
+          this.showToast('Category deleted successfully', 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting category:', error);
+        this.showToast('Failed to delete category', 'error');
+      }
+    },
+
+    // Supplier management
+    showSupplierForm(supplier = null) {
+      this.editingSupplier = supplier;
+      if (supplier) {
+        this.supplierForm = { ...supplier };
+      } else {
+        this.supplierForm = {
+          name: '',
+          contact_person: '',
+          phone: '',
+          email: '',
+          address: '',
+          notes: ''
+        };
+      }
+      this.showSupplierFormModal = true;
+    },
+
+    async saveSupplier() {
+      this.showToast('Supplier management requires advanced inventory setup', 'info');
+      this.showSupplierFormModal = false;
+      this.editingSupplier = null;
+    },
+
+    async deleteSupplier(supplierId) {
+      if (!confirm('Are you sure you want to delete this supplier?')) return;
+
+      try {
+        const response = await fetch(`${API_BASE}/api/inventory/suppliers/${supplierId}`, {
+          method: 'DELETE',
+          headers: this.getAuthHeaders()
+        });
+
+        if (response.ok) {
+          await this.loadInventoryData();
+          this.showToast('Supplier deleted successfully', 'success');
+        } else {
+          const error = await response.json();
+          this.showToast('Error: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Error deleting supplier:', error);
+        this.showToast('Failed to delete supplier', 'error');
+      }
+    },
+
+    // Import/Export functionality
+    exportInventoryData(type) {
+      try {
+        let endpoint = '';
+        let filename = '';
+
+        switch (type) {
+          case 'all':
+            endpoint = '/api/inventory/export/all';
+            filename = 'inventory-all';
+            break;
+          case 'low-stock':
+            endpoint = '/api/inventory/export/low-stock';
+            filename = 'inventory-low-stock';
+            break;
+          case 'out-of-stock':
+            endpoint = '/api/inventory/export/out-of-stock';
+            filename = 'inventory-out-of-stock';
+            break;
+        }
+
+        fetch(`${API_BASE}${endpoint}`, {
+          headers: this.getAuthHeaders()
+        })
+          .then(response => response.blob())
+          .then(blob => {
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${filename}-${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            this.showToast('Export completed successfully', 'success');
+          })
+          .catch(error => {
+            console.error('Export error:', error);
+            this.showToast('Failed to export data', 'error');
+          });
+      } catch (error) {
+        console.error('Export error:', error);
+        this.showToast('Failed to export data', 'error');
+      }
+    },
+
+    exportInventoryTemplate() {
+      const headers = [
+        'name,category_name,stock_quantity,low_stock_threshold,cost_price,selling_price,unit,supplier_name,description'
+      ];
+      const csvContent = headers.join('\n');
+
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'inventory-template.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    },
+
+    handleInventoryImport(event) {
+      const file = event.target.files[0];
+      if (file) {
+        this.importFileName = file.name;
+        this.importPreview = [];
+        this.importResults = { summary: { created: 0, updated: 0, errors: 0 }, errors: [] };
+      }
+    },
+
+    async processInventoryImport() {
+      if (!this.importFileName) {
+        this.showToast('Please select a file to import', 'error');
+        return;
+      }
+
+      const fileInput = document.getElementById('inventory-import-file');
+      const file = fileInput.files[0];
+
+      if (!file) return;
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('update_existing', this.importOptions.updateExisting);
+      formData.append('validate_only', this.importOptions.validateOnly);
+
+      try {
+        const response = await fetch(`${API_BASE}/api/inventory/import`, {
+          method: 'POST',
+          headers: {
+            'Authorization': this.getAuthHeaders()['Authorization']
+          },
+          body: formData
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+
+          if (this.importOptions.validateOnly) {
+            this.importPreview = result.preview || [];
+            this.showToast('Validation completed', 'success');
+          } else {
+            this.importResults = result;
+            this.showToast('Import completed successfully', 'success');
+            await this.loadInventoryData();
+            await this.loadMenuData();
+          }
+        } else {
+          const error = await response.json();
+          this.showToast('Import failed: ' + error.error, 'error');
+        }
+      } catch (error) {
+        console.error('Import error:', error);
+        this.showToast('Failed to import data', 'error');
+      } finally {
+        fileInput.value = '';
+        this.importFileName = '';
+      }
     }
   };
 }

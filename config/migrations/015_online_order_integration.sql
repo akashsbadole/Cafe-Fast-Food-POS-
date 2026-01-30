@@ -3,18 +3,15 @@
 -- This migration adds all necessary tables and columns for online order integration
 -- including provider management, order tracking, webhooks, and authentication.
 
--- Enable foreign keys for this migration
-PRAGMA foreign_keys = ON;
-
 -- 1. Create online_order_providers table
 CREATE TABLE IF NOT EXISTS online_order_providers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     name VARCHAR(100) NOT NULL,
     display_name VARCHAR(100) NOT NULL,
     description TEXT,
     api_base_url TEXT NOT NULL,
     webhook_url_pattern TEXT,
-    is_active BOOLEAN NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     logo_url TEXT,
@@ -25,7 +22,7 @@ CREATE TABLE IF NOT EXISTS online_order_providers (
 
 -- 2. Create online_order_credentials table
 CREATE TABLE IF NOT EXISTS online_order_credentials (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     provider_id INTEGER NOT NULL,
     client_id VARCHAR(255),
     client_secret TEXT,
@@ -39,7 +36,7 @@ CREATE TABLE IF NOT EXISTS online_order_credentials (
     signature_key TEXT,
     auth_header_name VARCHAR(100) DEFAULT 'Authorization',
     auth_header_format VARCHAR(100) DEFAULT 'Bearer {token}',
-    is_active BOOLEAN NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (provider_id) REFERENCES online_order_providers(id) ON DELETE CASCADE,
@@ -48,7 +45,7 @@ CREATE TABLE IF NOT EXISTS online_order_credentials (
 
 -- 3. Create online_order_history table
 CREATE TABLE IF NOT EXISTS online_order_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL,
     provider_id INTEGER NOT NULL,
     provider_order_id TEXT NOT NULL,
@@ -58,7 +55,7 @@ CREATE TABLE IF NOT EXISTS online_order_history (
     metadata JSON,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     processed_at TIMESTAMP,
-    is_processed BOOLEAN NOT NULL DEFAULT 0,
+    is_processed BOOLEAN NOT NULL DEFAULT false,
     error_message TEXT,
     retry_count INTEGER NOT NULL DEFAULT 0,
     FOREIGN KEY (order_id) REFERENCES orders(id) ON DELETE CASCADE,
@@ -67,37 +64,33 @@ CREATE TABLE IF NOT EXISTS online_order_history (
 
 -- 4. Create online_order_webhooks table
 CREATE TABLE IF NOT EXISTS online_order_webhooks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     provider_id INTEGER NOT NULL,
     webhook_url TEXT NOT NULL,
     event_types TEXT NOT NULL,
-    is_active BOOLEAN NOT NULL DEFAULT 1,
+    is_active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (provider_id) REFERENCES online_order_providers(id) ON DELETE CASCADE
 );
 
 -- 5. Add online order columns to orders table
--- Check if columns already exist to avoid errors
-PRAGMA table_info(orders);
-
--- Add columns for online order tracking
-ALTER TABLE orders ADD COLUMN online_order_source_id INTEGER DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_provider_id INTEGER DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_external_id TEXT DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_status VARCHAR(50) DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_webhook_processed BOOLEAN DEFAULT 0;
-ALTER TABLE orders ADD COLUMN online_order_customer_name TEXT DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_customer_phone TEXT DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_customer_email TEXT DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_delivery_address TEXT DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_instructions TEXT DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_payment_method VARCHAR(50) DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_expected_delivery_time TIMESTAMP DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_accepted_at TIMESTAMP DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_rejected_at TIMESTAMP DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_completed_at TIMESTAMP DEFAULT NULL;
-ALTER TABLE orders ADD COLUMN online_order_cancelled_at TIMESTAMP DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_source_id INTEGER DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_provider_id INTEGER DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_external_id TEXT DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_status VARCHAR(50) DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_webhook_processed BOOLEAN DEFAULT false;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_customer_name TEXT DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_customer_phone TEXT DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_customer_email TEXT DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_delivery_address TEXT DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_instructions TEXT DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_payment_method VARCHAR(50) DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_expected_delivery_time TIMESTAMP DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_accepted_at TIMESTAMP DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_rejected_at TIMESTAMP DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_completed_at TIMESTAMP DEFAULT NULL;
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS online_order_cancelled_at TIMESTAMP DEFAULT NULL;
 
 -- 6. Add online order columns to order_items table
 ALTER TABLE order_items ADD COLUMN online_order_item_id TEXT DEFAULT NULL;
@@ -112,7 +105,8 @@ CREATE INDEX IF NOT EXISTS idx_orders_online_provider ON orders(online_order_pro
 CREATE INDEX IF NOT EXISTS idx_orders_online_external ON orders(online_order_external_id);
 
 -- 8. Create view for online order tracking
-CREATE VIEW IF NOT EXISTS vw_online_orders AS
+DROP VIEW IF EXISTS vw_online_orders;
+CREATE VIEW vw_online_orders AS
 SELECT 
     o.id AS order_id,
     o.order_number,
@@ -147,8 +141,9 @@ WHERE o.online_order_external_id IS NOT NULL
 GROUP BY o.id, oop.id;
 
 -- 9. Create view for online order reports
-CREATE VIEW IF NOT EXISTS vw_online_order_reports AS
-SELECT 
+DROP VIEW IF EXISTS vw_online_order_reports;
+CREATE VIEW vw_online_order_reports AS
+SELECT
     oop.id AS provider_id,
     oop.name AS provider_name,
     oop.display_name AS provider_display_name,
@@ -160,16 +155,17 @@ SELECT
     AVG(o.total_amount) AS avg_order_value,
     MIN(o.created_at) AS first_order_date,
     MAX(o.created_at) AS last_order_date,
-    COUNT(DISTINCT CASE WHEN o.created_at >= DATE('now', '-7 days') THEN o.id END) AS orders_last_7_days,
-    COUNT(DISTINCT CASE WHEN o.created_at >= DATE('now', '-30 days') THEN o.id END) AS orders_last_30_days
+    COUNT(DISTINCT CASE WHEN o.created_at >= CURRENT_DATE - INTERVAL '7 days' THEN o.id END) AS orders_last_7_days,
+    COUNT(DISTINCT CASE WHEN o.created_at >= CURRENT_DATE - INTERVAL '30 days' THEN o.id END) AS orders_last_30_days
 FROM online_order_providers oop
 LEFT JOIN orders o ON oop.id = o.online_order_provider_id
 WHERE o.online_order_external_id IS NOT NULL
 GROUP BY oop.id, oop.name, oop.display_name;
 
 -- 10. Create view for online order provider performance
-CREATE VIEW IF NOT EXISTS vw_online_order_provider_performance AS
-SELECT 
+DROP VIEW IF EXISTS vw_online_order_provider_performance;
+CREATE VIEW vw_online_order_provider_performance AS
+SELECT
     oop.id AS provider_id,
     oop.name AS provider_name,
     oop.display_name AS provider_display_name,
@@ -178,14 +174,14 @@ SELECT
     SUM(CASE WHEN o.status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled_orders,
     SUM(CASE WHEN o.status = 'rejected' THEN 1 ELSE 0 END) AS rejected_orders,
     SUM(o.total_amount) AS total_revenue,
-    COUNT(DISTINCT o.customer_id) AS unique_customers,
+    COUNT(DISTINCT o.online_order_customer_email) AS unique_customers,
     AVG(o.total_amount) AS avg_order_value,
     MIN(o.created_at) AS first_order_date,
     MAX(o.created_at) AS last_order_date,
-    COUNT(DISTINCT o.id) FILTER (WHERE o.created_at >= DATE('now', '-1 day')) AS orders_today,
-    COUNT(DISTINCT o.id) FILTER (WHERE o.created_at >= DATE('now', '-7 days')) AS orders_last_7_days,
-    COUNT(DISTINCT o.id) FILTER (WHERE o.created_at >= DATE('now', '-30 days')) AS orders_last_30_days,
-    COUNT(DISTINCT o.id) FILTER (WHERE o.created_at >= DATE('now', '-90 days')) AS orders_last_90_days
+    COUNT(DISTINCT o.id) FILTER (WHERE o.created_at >= CURRENT_DATE - INTERVAL '1 day') AS orders_today,
+    COUNT(DISTINCT o.id) FILTER (WHERE o.created_at >= CURRENT_DATE - INTERVAL '7 days') AS orders_last_7_days,
+    COUNT(DISTINCT o.id) FILTER (WHERE o.created_at >= CURRENT_DATE - INTERVAL '30 days') AS orders_last_30_days,
+    COUNT(DISTINCT o.id) FILTER (WHERE o.created_at >= CURRENT_DATE - INTERVAL '90 days') AS orders_last_90_days
 FROM online_order_providers oop
 LEFT JOIN orders o ON oop.id = o.online_order_provider_id
 WHERE o.online_order_external_id IS NOT NULL

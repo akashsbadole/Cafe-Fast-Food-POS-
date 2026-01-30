@@ -1,96 +1,460 @@
-[2026-01-19T19:30:06.359Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
-[2026-01-19T19:30:11.186Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
-[2026-01-19T19:30:38.792Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
-[2026-01-19T19:32:40.587Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
-[2026-01-19T19:32:48.619Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{pin:1234}'","type":"entity.parse.failed"}
-[2026-01-19T19:32:56.798Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{\"pin\":\"1234\"}' ","type":"entity.parse.failed"}
-[2026-01-19T19:37:01.004Z] ERROR: Error fetching settings: {}
-[2026-01-19T19:47:18.667Z] ERROR: Error fetching settings: {}
-[2026-01-19T19:47:18.676Z] ERROR: Error fetching settings: {}
-[2026-01-20T20:57:45.636Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T20:57:45.787Z] INFO: KDS WebSocket connected
-[2026-01-20T20:58:51.399Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T20:58:51.401Z] INFO: KDS WebSocket connected
-[2026-01-20T21:09:24.633Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T21:09:24.635Z] INFO: KDS WebSocket connected
-[2026-01-20T21:11:23.658Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:11:52.815Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:12:11.082Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:12:19.121Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:12:54.897Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:12:55.081Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T21:12:55.081Z] INFO: KDS WebSocket connected
-[2026-01-20T21:24:13.931Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:24:14.153Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T21:24:14.154Z] INFO: KDS WebSocket connected
-[2026-01-20T21:39:23.120Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:39:23.359Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T21:39:23.359Z] INFO: KDS WebSocket connected
-[2026-01-20T21:41:03.978Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:41:04.146Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T21:41:04.146Z] INFO: KDS WebSocket connected
-[2026-01-20T21:43:23.456Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:43:23.632Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T21:43:23.632Z] INFO: KDS WebSocket connected
-[2026-01-20T21:45:43.357Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:45:43.533Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T21:45:43.533Z] INFO: KDS WebSocket connected
-[2026-01-20T21:46:55.950Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:46:56.138Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T21:46:56.138Z] INFO: KDS WebSocket connected
-[2026-01-20T21:48:39.458Z] INFO: [SyncManager] Initialized
-[2026-01-20T21:48:39.623Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-20T21:48:39.624Z] INFO: KDS WebSocket connected
-[2026-01-20T21:48:43.543Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T16:55:07.308Z] INFO: [SyncManager] Initialized
-[2026-01-21T16:55:11.688Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-21T16:55:11.689Z] INFO: KDS WebSocket connected
-[2026-01-21T16:56:56.336Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T17:00:07.310Z] INFO: [SyncManager] Starting sync process
-[2026-01-21T17:00:07.318Z] ERROR: [SyncManager] Sync failed: {}
-[2026-01-21T17:05:07.321Z] INFO: [SyncManager] Starting sync process
-[2026-01-21T17:05:07.428Z] ERROR: [SyncManager] Sync failed: {}
-[2026-01-21T17:08:34.221Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T17:09:06.176Z] INFO: [SyncManager] Initialized
-[2026-01-21T17:09:12.548Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-21T17:09:12.549Z] INFO: KDS WebSocket connected
-[2026-01-21T17:09:23.679Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T17:14:06.190Z] INFO: [SyncManager] Starting sync process
-[2026-01-21T17:14:06.191Z] ERROR: [SyncManager] Sync failed: {}
-[2026-01-21T17:19:06.195Z] INFO: [SyncManager] Starting sync process
-[2026-01-21T17:19:06.198Z] ERROR: [SyncManager] Sync failed: {}
-[2026-01-21T17:29:30.737Z] INFO: [SyncManager] Initialized
-[2026-01-21T17:29:32.910Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-21T17:29:32.910Z] INFO: KDS WebSocket connected
-[2026-01-21T17:29:43.964Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T17:30:14.785Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T17:30:18.005Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"45","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T17:34:30.745Z] INFO: [SyncManager] Starting sync process
-[2026-01-21T17:34:30.746Z] ERROR: [SyncManager] Sync failed: {}
-[2026-01-21T17:38:19.045Z] INFO: [SyncManager] Initialized
-[2026-01-21T17:38:19.201Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-21T17:38:19.201Z] INFO: KDS WebSocket connected
-[2026-01-21T17:38:46.382Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T17:42:16.782Z] INFO: [SyncManager] Initialized
-[2026-01-21T17:42:16.932Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-21T17:42:16.932Z] INFO: KDS WebSocket connected
-[2026-01-21T17:42:23.508Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T17:47:16.795Z] INFO: [SyncManager] Starting sync process
-[2026-01-21T17:47:16.796Z] ERROR: [SyncManager] Sync failed: {}
-[2026-01-21T17:48:49.754Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T18:07:00.288Z] INFO: [SyncManager] Initialized
-[2026-01-21T18:07:00.481Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-21T18:07:00.481Z] INFO: KDS WebSocket connected
-[2026-01-21T18:07:11.866Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T18:12:00.303Z] INFO: [SyncManager] Starting sync process
-[2026-01-21T18:12:00.304Z] ERROR: [SyncManager] Sync failed: {}
-[2026-01-21T18:14:28.096Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T18:14:31.828Z] ERROR: PIN verification error: {"length":109,"name":"error","severity":"ERROR","code":"42703","position":"27","file":"parse_relation.c","line":"3718","routine":"errorMissingColumn"}
-[2026-01-21T18:17:00.309Z] INFO: [SyncManager] Starting sync process
-[2026-01-21T18:17:00.310Z] ERROR: [SyncManager] Sync failed: {}
-[2026-01-21T18:28:21.109Z] INFO: [SyncManager] Initialized
-[2026-01-21T18:28:21.299Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-21T18:28:21.299Z] INFO: KDS WebSocket connected
-[2026-01-21T18:29:17.652Z] INFO: [SyncManager] Initialized
-[2026-01-21T18:29:17.804Z] INFO: KDS WebSocket server listening on port 8081
-[2026-01-21T18:29:17.805Z] INFO: KDS WebSocket connected
+[2026-01-26T20:29:10.846Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-26T20:29:10.849Z] INFO: Initializing Reporting Manager...
+[2026-01-26T20:29:10.850Z] INFO: Reporting Manager initialized successfully
+[2026-01-26T20:29:11.000Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-26T20:29:11.005Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-26T20:29:11.005Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-26T20:29:42.589Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-26T20:29:42.589Z] INFO: KDS WebSocket connected
+[2026-01-28T18:24:33.811Z] INFO: [SyncManager] Initialized
+[2026-01-28T18:24:46.759Z] INFO: KDS WebSocket server listening on port 8081
+[2026-01-28T18:24:46.760Z] INFO: KDS WebSocket connected
+[2026-01-28T18:24:51.290Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T18:24:51.290Z] INFO: Initializing Reporting Manager...
+[2026-01-28T18:24:51.292Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T18:24:54.726Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T18:24:54.789Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T18:24:54.790Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T18:25:03.669Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:25:03.670Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:25:03.672Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:25:03.683Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:25:08.793Z] ERROR: Authentication error: {"name":"TokenExpiredError","message":"jwt expired","expiredAt":"2026-01-27T07:40:48.000Z"}
+[2026-01-28T18:25:08.798Z] ERROR: Authentication error: {"name":"TokenExpiredError","message":"jwt expired","expiredAt":"2026-01-27T07:40:48.000Z"}
+[2026-01-28T18:25:08.853Z] ERROR: Authentication error: {"name":"TokenExpiredError","message":"jwt expired","expiredAt":"2026-01-27T07:40:48.000Z"}
+[2026-01-28T18:25:08.858Z] ERROR: Authentication error: {"name":"TokenExpiredError","message":"jwt expired","expiredAt":"2026-01-27T07:40:48.000Z"}
+[2026-01-28T18:25:33.653Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:25:33.653Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:25:33.654Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:25:33.654Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:26:03.654Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:26:03.654Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:26:03.655Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:26:03.656Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:26:33.673Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:26:33.673Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:26:33.675Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:26:33.675Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:27:03.747Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:27:03.748Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:27:03.749Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:27:03.751Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:27:33.769Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:27:33.772Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:27:33.776Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:27:33.778Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:28:03.810Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:28:03.811Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:28:03.811Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:28:03.812Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:28:33.808Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:28:33.809Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:28:33.810Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:28:33.811Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:29:03.820Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:29:03.821Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:29:03.821Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:29:03.822Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:29:33.814Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:29:33.817Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:29:33.824Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:29:33.824Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:29:33.825Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:29:33.825Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:30:03.836Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:30:03.837Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:30:03.837Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:30:03.838Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:30:33.844Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:30:33.845Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:30:33.846Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:30:33.847Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:31:03.846Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:31:03.847Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:31:03.847Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:31:03.848Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:31:33.856Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:31:33.857Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:31:33.857Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:31:33.858Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:32:03.870Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:32:03.871Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:32:03.871Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:32:03.871Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:32:33.887Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:32:33.887Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:32:33.888Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:32:33.892Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:33:03.886Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:33:03.886Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:33:03.887Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:33:03.887Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:33:33.898Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:33:33.898Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:33:33.899Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:33:33.899Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:34:03.916Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:34:03.916Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:34:03.918Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:34:03.918Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:34:33.825Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:34:33.828Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:34:33.922Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:34:33.923Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:34:33.923Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:34:33.923Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:35:03.930Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:35:03.930Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:35:03.931Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:35:03.932Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:35:33.937Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:35:33.938Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:35:33.939Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:35:33.955Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:36:03.952Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:36:03.952Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:36:03.953Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:36:03.954Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:36:14.749Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T18:36:14.752Z] INFO: Initializing Reporting Manager...
+[2026-01-28T18:36:14.754Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T18:36:14.929Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T18:36:14.933Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T18:36:14.934Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T18:36:34.159Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:36:34.160Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:36:34.161Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:36:34.162Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:37:04.156Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:37:04.157Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:37:04.157Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:37:04.158Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:37:34.194Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:37:34.196Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:37:34.197Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:37:34.200Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:38:04.179Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:38:04.180Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:38:04.180Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:38:04.181Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:38:34.182Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:38:34.183Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:38:34.183Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:38:34.184Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:39:04.189Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:39:04.189Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:39:04.191Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:39:04.195Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:39:33.826Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:39:33.827Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T18:39:34.218Z] INFO: [SyncManager] Connection restored, starting sync
+[2026-01-28T18:39:34.220Z] INFO: [SyncManager] Starting sync process
+[2026-01-28T18:39:34.221Z] INFO: [SyncManager] Sync already in progress
+[2026-01-28T18:39:34.223Z] ERROR: [SyncManager] Sync failed: {}
+[2026-01-28T19:11:14.399Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T19:11:14.400Z] INFO: Initializing Reporting Manager...
+[2026-01-28T19:11:14.401Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T19:11:14.544Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:11:14.545Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:11:14.546Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T19:11:48.122Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:11:57.770Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:12:09.332Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:12:25.836Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{\"items\": [{\"id\": 1, \"quantity\": 1, \"price\": 80, \"total\": 80}], \"subtotal\": 80, \"taxAmount\": 7.2, \"totalAmount\": 87.2}' ","type":"entity.parse.failed"}
+[2026-01-28T19:13:20.482Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T19:13:20.484Z] INFO: Initializing Reporting Manager...
+[2026-01-28T19:13:20.485Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T19:13:20.564Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:13:20.567Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:13:20.568Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T19:13:56.359Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{\"items\": [{\"id\": 1, \"quantity\": 1, \"price\": 80, \"total\": 80}], \"subtotal\": 80, \"taxAmount\": 7.2, \"totalAmount\": 87.2}' ","type":"entity.parse.failed"}
+[2026-01-28T19:14:24.420Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{\"items\": [{\"id\": 1, \"quantity\": 1, \"price\": 80, \"total\": 80}], \"subtotal\": 80}' ","type":"entity.parse.failed"}
+[2026-01-28T19:15:11.330Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T19:15:11.332Z] INFO: Initializing Reporting Manager...
+[2026-01-28T19:15:11.334Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T19:15:11.400Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:15:11.402Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:15:11.403Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T19:15:22.399Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{\"items\": [{\"id\": 1, \"quantity\": 1, \"price\": 80, \"total\": 80}], \"subtotal\": 80}' ","type":"entity.parse.failed"}
+[2026-01-28T19:15:32.111Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:16:14.045Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T19:16:14.046Z] INFO: Initializing Reporting Manager...
+[2026-01-28T19:16:14.047Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T19:16:14.085Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:16:14.087Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:16:14.088Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T19:16:53.194Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:17:01.834Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:17:10.686Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:17:22.510Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:17:32.331Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:17:41.750Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:17:52.834Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:18:01.969Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:18:11.208Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:18:21.018Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:18:30.467Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:18:42.612Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:18:53.511Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:19:02.718Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:19:15.330Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:19:29.937Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:19:38.775Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:19:49.442Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:20:07.496Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:20:17.120Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:20:26.502Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:20:36.041Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:20:45.039Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:20:54.248Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:21:05.526Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:21:14.301Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:21:25.298Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:21:36.355Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:21:44.423Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:21:53.633Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:22:03.512Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:22:12.284Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:22:22.605Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:22:32.632Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:22:42.039Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:22:53.455Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:23:03.729Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:23:12.996Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:23:22.487Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:23:32.765Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:23:42.583Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:23:52.251Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:24:03.694Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:24:14.057Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:24:23.735Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:24:34.130Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:24:46.600Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:24:55.828Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:25:07.687Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:25:16.776Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:25:26.534Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:25:36.595Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:25:45.895Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:25:55.738Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:26:07.190Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:26:17.562Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:26:29.361Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:26:39.477Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:27:00.735Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T19:27:00.736Z] INFO: Initializing Reporting Manager...
+[2026-01-28T19:27:00.737Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T19:27:00.787Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:27:00.789Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:27:00.789Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T19:27:43.255Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:27:57.232Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:28:09.974Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:28:21.489Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:28:36.385Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:28:47.506Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:29:03.247Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:29:13.855Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:29:24.725Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:29:34.390Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:29:45.012Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:29:55.108Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:30:07.620Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:30:17.658Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:30:27.640Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:30:52.105Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:31:00.502Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:31:09.130Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:31:23.539Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:31:33.213Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:31:41.481Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:31:52.356Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:32:01.619Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:32:10.357Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:32:21.666Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:32:29.281Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:32:39.070Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:32:47.534Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:32:58.660Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:33:08.907Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:33:21.044Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:33:30.380Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:33:38.908Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:33:51.454Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:34:00.312Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:34:11.542Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:34:23.948Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:34:33.468Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:34:46.558Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:34:55.185Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:35:03.620Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:35:12.247Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:35:23.338Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:35:31.728Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:35:42.013Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:35:50.114Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:35:58.279Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:36:07.146Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:36:22.626Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:36:31.208Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:36:42.714Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:36:51.323Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:37:01.969Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:37:11.051Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:37:21.405Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:37:43.899Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T19:37:43.904Z] INFO: Initializing Reporting Manager...
+[2026-01-28T19:37:43.908Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T19:37:43.976Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:37:43.980Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:37:43.980Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T19:38:15.970Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:38:26.003Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:38:34.596Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:38:47.153Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:38:56.807Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:39:07.250Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:39:17.779Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:39:27.833Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:39:37.764Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:39:51.434Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:40:02.394Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:40:12.892Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:40:24.732Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:40:33.953Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:40:44.510Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:40:56.386Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:41:05.571Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:41:16.463Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:41:28.143Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:41:37.254Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:41:47.212Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:41:58.733Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:42:09.851Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:42:20.651Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:42:31.923Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:42:40.848Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:42:49.546Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:43:02.160Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:43:11.924Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:43:21.249Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:43:30.559Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:43:39.891Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:43:48.854Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:43:59.068Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:44:07.641Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:44:18.074Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:44:27.376Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:44:36.170Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:44:45.273Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:44:55.801Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:45:05.234Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:45:14.151Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:45:23.312Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:45:33.650Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:45:45.598Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:45:57.433Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:46:11.772Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:46:23.439Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:46:33.239Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:46:43.071Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:46:59.248Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:47:12.182Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:47:22.841Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:47:40.635Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:47:51.644Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:48:01.591Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:48:37.991Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T19:48:37.993Z] INFO: Initializing Reporting Manager...
+[2026-01-28T19:48:37.994Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T19:48:38.134Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:48:38.137Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:48:38.138Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T19:49:15.401Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:49:25.457Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:49:35.624Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:49:45.778Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:49:57.895Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:50:08.296Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:50:18.560Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:50:28.546Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:50:38.464Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:50:51.348Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:51:03.396Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:51:13.172Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:51:22.899Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:51:32.342Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:51:42.300Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:51:51.793Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:52:03.176Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:52:14.642Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:52:25.913Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:52:35.955Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:52:47.725Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:52:58.025Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:53:19.774Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:53:29.727Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:53:39.391Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:53:48.872Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:53:58.485Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:54:10.245Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:54:22.400Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:54:31.086Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:54:40.029Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:54:49.884Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:54:59.229Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:55:08.770Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:55:21.043Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:55:32.357Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:55:42.010Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:55:53.219Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:56:04.959Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:56:16.217Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:56:29.384Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:56:40.911Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:56:50.535Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:57:00.797Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:57:10.384Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:57:20.666Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:57:32.889Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:57:41.816Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:57:52.051Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:58:00.972Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:58:10.565Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:58:20.314Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:58:33.747Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:58:43.142Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:58:53.909Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:59:04.672Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T19:59:27.075Z] INFO: ReportingManager initialized with SQLite database
+[2026-01-28T19:59:27.076Z] INFO: Initializing Reporting Manager...
+[2026-01-28T19:59:27.077Z] INFO: Reporting Manager initialized successfully
+[2026-01-28T19:59:27.113Z] WARN: Could not load WhatsApp config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:59:27.114Z] WARN: Could not load email config from database: object is not iterable (cannot read property Symbol(Symbol.iterator))
+[2026-01-28T19:59:27.115Z] WARN: Email configuration not found, using default (sendmail)
+[2026-01-28T20:00:02.310Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:00:12.777Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:00:22.533Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:00:32.281Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:00:41.662Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:00:51.614Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:01:02.386Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:01:11.278Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:01:19.786Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:01:31.615Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:01:40.520Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:01:49.153Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:01:59.400Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:02:08.345Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:03:12.840Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:03:22.843Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:03:33.101Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:03:42.630Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:03:53.659Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:04:02.751Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:04:12.096Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:04:22.158Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:04:31.089Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:04:39.876Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:04:51.021Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}
+[2026-01-28T20:05:03.809Z] ERROR: Unhandled Exception: {"expose":true,"statusCode":400,"status":400,"body":"'{items:","type":"entity.parse.failed"}

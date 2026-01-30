@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS tax_rates (
     location_id INTEGER DEFAULT 1,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (location_id) REFERENCES locations(id)
+    FOREIGN KEY (location_id) REFERENCES locations(id),
+    UNIQUE(name, location_id)
 );
 
 -- Create tax_configurations table for regional tax settings
@@ -31,7 +32,7 @@ CREATE TABLE IF NOT EXISTS tax_configurations (
 ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS tax_type TEXT DEFAULT 'exclusive';
 ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS tax_rate_id INTEGER;
 ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS custom_tax_rate REAL;
-ALTER TABLE menu_items ADD CONSTRAINT IF NOT EXISTS fk_menu_items_tax_rate
+ALTER TABLE menu_items ADD CONSTRAINT fk_menu_items_tax_rate
     FOREIGN KEY (tax_rate_id) REFERENCES tax_rates(id);
 
 -- Add tax_type and tax_rate_id columns to order_items table
@@ -39,7 +40,7 @@ ALTER TABLE order_items ADD COLUMN IF NOT EXISTS tax_type TEXT DEFAULT 'exclusiv
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS tax_rate_id INTEGER;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS tax_rate REAL;
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS tax_amount REAL DEFAULT 0;
-ALTER TABLE order_items ADD CONSTRAINT IF NOT EXISTS fk_order_items_tax_rate
+ALTER TABLE order_items ADD CONSTRAINT fk_order_items_tax_rate
     FOREIGN KEY (tax_rate_id) REFERENCES tax_rates(id);
 
 -- Add tax_type column to orders table
@@ -62,7 +63,8 @@ SELECT name, rate, 'exclusive', is_active, 1 FROM tax_settings
 ON CONFLICT (name, location_id) DO NOTHING;
 
 -- Create a view for tax summary reporting
-CREATE VIEW IF NOT EXISTS tax_summary AS
+DROP VIEW IF EXISTS tax_summary;
+CREATE VIEW tax_summary AS
 SELECT 
     o.id as order_id,
     o.order_number,
@@ -80,7 +82,8 @@ WHERE o.payment_status = 'paid'
 GROUP BY o.id, o.order_number, o.created_at, o.location_id, o.subtotal, o.tax_amount, o.total_amount, o.tax_type;
 
 -- Create a view for tax breakdown by type
-CREATE VIEW IF NOT EXISTS tax_breakdown AS
+DROP VIEW IF EXISTS tax_breakdown;
+CREATE VIEW tax_breakdown AS
 SELECT 
     DATE(o.created_at) as date,
     o.location_id,

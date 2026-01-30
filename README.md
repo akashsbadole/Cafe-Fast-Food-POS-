@@ -723,3 +723,5 @@ For issues and feature requests, please check the documentation or contact suppo
 ## License
 
 [MIT License](LICENSE)
+---------------------
+curl -X POST http://127.0.0.1:3000/api/auth/verify-pin -H "Content-Type: application/json" -d "{\"pin\":\"1234\"}"

@@ -3,7 +3,9 @@
 
 class InventoryManager {
   constructor(db) {
-    this.db = db;
+    // Get the raw database object from the wrapper
+    this.db = db.getDatabase ? db.getDatabase() : db;
+    this.isPostgres = typeof this.db.query === 'function' && !this.db.run;
   }
 
   // Initialize inventory system
@@ -14,7 +16,11 @@ class InventoryManager {
       this.recipeManager = new RecipeManager(this.db, this);
       await this.recipeManager.init();
 
-      // Create suppliers table if not exists
+      if (this.isPostgres) {
+        console.log('InventoryManager: PostgreSQL mode detected but not supported - using SQLite');
+      }
+
+      // SQLite schema
       this.db.run(`
         CREATE TABLE IF NOT EXISTS suppliers (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,7 +40,6 @@ class InventoryManager {
         )
       `);
 
-      // Create purchase_orders table if not exists
       this.db.run(`
         CREATE TABLE IF NOT EXISTS purchase_orders (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -58,7 +63,6 @@ class InventoryManager {
         )
       `);
 
-      // Create purchase_order_items table if not exists
       this.db.run(`
         CREATE TABLE IF NOT EXISTS purchase_order_items (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -74,7 +78,6 @@ class InventoryManager {
         )
       `);
 
-      // Create reorder_levels table if not exists
       this.db.run(`
         CREATE TABLE IF NOT EXISTS reorder_levels (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -88,7 +91,6 @@ class InventoryManager {
         )
       `);
 
-      // Create inventory_alerts table if not exists
       this.db.run(`
         CREATE TABLE IF NOT EXISTS inventory_alerts (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -104,7 +106,6 @@ class InventoryManager {
         )
       `);
 
-      // Create inventory_transfers table if not exists
       this.db.run(`
         CREATE TABLE IF NOT EXISTS inventory_transfers (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,7 +120,6 @@ class InventoryManager {
         )
       `);
 
-      // Create inventory_transfer_items table if not exists
       this.db.run(`
         CREATE TABLE IF NOT EXISTS inventory_transfer_items (
           id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -141,50 +141,102 @@ class InventoryManager {
 
   // Helper to convert result to objects
   _resultToObjects(result) {
-    if (!result || result.length === 0) return [];
-    const columns = result[0].columns;
-    const values = result[0].values;
-    return values.map(row => {
-      const obj = {};
-      columns.forEach((col, i) => {
-        obj[col] = row[i];
+    if (this.isPostgres) {
+      return result.rows || [];
+    } else {
+      if (!result || result.length === 0) return [];
+      const columns = result[0].columns;
+      const values = result[0].values;
+      return values.map(row => {
+        const obj = {};
+        columns.forEach((col, i) => {
+          obj[col] = row[i];
+        });
+        return obj;
       });
-      return obj;
-    });
+    }
+  }
+
+  // Helper to execute queries with proper method selection
+  async _executeQuery(query, params = []) {
+    if (this.isPostgres) {
+      return await this.db.query(query, params);
+    } else {
+      return this.db.exec(query, params);
+    }
+  }
+
+  // Helper to execute non-query operations
+  _executeNonQuery(query, params = []) {
+    if (this.isPostgres) {
+      return this.db.query(query, params);
+    } else {
+      return this.db.run(query, params);
+    }
   }
 
   // ==================== SUPPLIER MANAGEMENT ====================
 
   // Create supplier
   async createSupplier(supplierData, userId) {
-    const result = this.db.prepare(`
-      INSERT INTO suppliers 
-      (name, contact_person, phone, email, address, city, state, pincode, gst_number, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      supplierData.name,
-      supplierData.contact_person || null,
-      supplierData.phone || null,
-      supplierData.email || null,
-      supplierData.address || null,
-      supplierData.city || null,
-      supplierData.state || null,
-      supplierData.pincode || null,
-      supplierData.gst_number || null,
-      supplierData.notes || null
-    );
+    let supplierId;
+    if (this.isPostgres) {
+      const result = await this.db.query(`
+        INSERT INTO suppliers
+        (name, contact_person, phone, email, address, city, state, pincode, gst_number, notes)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id
+      `, [
+        supplierData.name,
+        supplierData.contact_person || null,
+        supplierData.phone || null,
+        supplierData.email || null,
+        supplierData.address || null,
+        supplierData.city || null,
+        supplierData.state || null,
+        supplierData.pincode || null,
+        supplierData.gst_number || null,
+        supplierData.notes || null
+      ]);
+      supplierId = result.rows[0].id;
+    } else {
+      const result = this.db.prepare(`
+        INSERT INTO suppliers
+        (name, contact_person, phone, email, address, city, state, pincode, gst_number, notes)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        supplierData.name,
+        supplierData.contact_person || null,
+        supplierData.phone || null,
+        supplierData.email || null,
+        supplierData.address || null,
+        supplierData.city || null,
+        supplierData.state || null,
+        supplierData.pincode || null,
+        supplierData.gst_number || null,
+        supplierData.notes || null
+      );
+      supplierId = result.lastInsertRowid;
+    }
 
-    const supplierId = result.lastInsertRowid;
-    
     // Update timestamp
-    this.db.run('UPDATE suppliers SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [supplierId]);
+    if (this.isPostgres) {
+      await this.db.query('UPDATE suppliers SET updated_at = CURRENT_TIMESTAMP WHERE id = $1', [supplierId]);
+    } else {
+      this.db.run('UPDATE suppliers SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [supplierId]);
+    }
 
     return this.getSupplier(supplierId);
   }
 
   // Get supplier by ID
   async getSupplier(supplierId) {
-    const result = this.db.exec('SELECT * FROM suppliers WHERE id = ?', [supplierId]);
+    let result;
+    if (this.isPostgres) {
+      result = await this.db.query('SELECT * FROM suppliers WHERE id = $1', [supplierId]);
+    } else {
+      result = this.db.exec('SELECT * FROM suppliers WHERE id = ?', [supplierId]);
+    }
     const suppliers = this._resultToObjects(result);
     return suppliers[0] || null;
   }
@@ -200,58 +252,108 @@ class InventoryManager {
 
     query += ' ORDER BY name ASC';
 
-    const result = this.db.exec(query, params);
+    let result;
+    if (this.isPostgres) {
+      result = await this.db.query(query, params);
+    } else {
+      result = this.db.exec(query, params);
+    }
     return this._resultToObjects(result);
   }
 
   // Update supplier
   async updateSupplier(supplierId, supplierData, userId) {
-    this.db.run(`
-      UPDATE suppliers SET 
-        name = ?,
-        contact_person = ?,
-        phone = ?,
-        email = ?,
-        address = ?,
-        city = ?,
-        state = ?,
-        pincode = ?,
-        gst_number = ?,
-        notes = ?,
-        updated_at = CURRENT_TIMESTAMP
-      WHERE id = ?
-    `, [
-      supplierData.name,
-      supplierData.contact_person || null,
-      supplierData.phone || null,
-      supplierData.email || null,
-      supplierData.address || null,
-      supplierData.city || null,
-      supplierData.state || null,
-      supplierData.pincode || null,
-      supplierData.gst_number || null,
-      supplierData.notes || null,
-      supplierId
-    ]);
+    if (this.isPostgres) {
+      await this.db.query(`
+        UPDATE suppliers SET
+          name = $1,
+          contact_person = $2,
+          phone = $3,
+          email = $4,
+          address = $5,
+          city = $6,
+          state = $7,
+          pincode = $8,
+          gst_number = $9,
+          notes = $10,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = $11
+      `, [
+        supplierData.name,
+        supplierData.contact_person || null,
+        supplierData.phone || null,
+        supplierData.email || null,
+        supplierData.address || null,
+        supplierData.city || null,
+        supplierData.state || null,
+        supplierData.pincode || null,
+        supplierData.gst_number || null,
+        supplierData.notes || null,
+        supplierId
+      ]);
+    } else {
+      this.db.run(`
+        UPDATE suppliers SET
+          name = ?,
+          contact_person = ?,
+          phone = ?,
+          email = ?,
+          address = ?,
+          city = ?,
+          state = ?,
+          pincode = ?,
+          gst_number = ?,
+          notes = ?,
+          updated_at = CURRENT_TIMESTAMP
+        WHERE id = ?
+      `, [
+        supplierData.name,
+        supplierData.contact_person || null,
+        supplierData.phone || null,
+        supplierData.email || null,
+        supplierData.address || null,
+        supplierData.city || null,
+        supplierData.state || null,
+        supplierData.pincode || null,
+        supplierData.gst_number || null,
+        supplierData.notes || null,
+        supplierId
+      ]);
+    }
 
     return this.getSupplier(supplierId);
   }
 
   // Delete supplier (soft delete)
   async deleteSupplier(supplierId, userId) {
-    this.db.run('UPDATE suppliers SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [supplierId]);
+    if (this.isPostgres) {
+      await this.db.query('UPDATE suppliers SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = $1', [supplierId]);
+    } else {
+      this.db.run('UPDATE suppliers SET is_active = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?', [supplierId]);
+    }
     return { success: true, message: 'Supplier deactivated successfully' };
   }
 
   // Search suppliers
   async searchSuppliers(query) {
-    const result = this.db.exec(`
-      SELECT * FROM suppliers 
-      WHERE is_active = 1 AND 
-            (name LIKE ? OR contact_person LIKE ? OR phone LIKE ? OR email LIKE ?)
-      ORDER BY name ASC
-      LIMIT 20
-    `, [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`]);
+    let result;
+    if (this.isPostgres) {
+      result = await this.db.query(`
+        SELECT * FROM suppliers
+        WHERE is_active = 1 AND
+              (name ILIKE $1 OR contact_person ILIKE $1 OR phone ILIKE $1 OR email ILIKE $1)
+        ORDER BY name ASC
+        LIMIT 20
+      `, [`%${query}%`]);
+    } else {
+      result = this.db.exec(`
+        SELECT * FROM suppliers
+        WHERE is_active = 1 AND
+              (name LIKE ? OR contact_person LIKE ? OR phone LIKE ? OR email LIKE ?)
+        ORDER BY name ASC
+        LIMIT 20
+      `, [`%${query}%`, `%${query}%`, `%${query}%`, `%${query}%`]);
+    }
 
     return this._resultToObjects(result);
   }
@@ -261,17 +363,34 @@ class InventoryManager {
   // Generate PO number
   async generatePONumber() {
     const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
-    const result = this.db.exec(`
-      SELECT po_number FROM purchase_orders 
-      WHERE po_number LIKE ?
-      ORDER BY id DESC LIMIT 1
-    `, [`PO-${today}-%`]);
+    let result;
+    if (this.isPostgres) {
+      result = await this.db.query(`
+        SELECT po_number FROM purchase_orders
+        WHERE po_number LIKE $1
+        ORDER BY id DESC LIMIT 1
+      `, [`PO-${today}-%`]);
+    } else {
+      result = this.db.exec(`
+        SELECT po_number FROM purchase_orders
+        WHERE po_number LIKE ?
+        ORDER BY id DESC LIMIT 1
+      `, [`PO-${today}-%`]);
+    }
 
     let counter = 1;
-    if (result.length > 0 && result[0].values.length > 0) {
-      const lastPO = result[0].values[0][0];
-      const parts = lastPO.split('-');
-      counter = parseInt(parts[2]) + 1;
+    if (this.isPostgres) {
+      if (result.rows.length > 0) {
+        const lastPO = result.rows[0].po_number;
+        const parts = lastPO.split('-');
+        counter = parseInt(parts[2]) + 1;
+      }
+    } else {
+      if (result.length > 0 && result[0].values.length > 0) {
+        const lastPO = result[0].values[0][0];
+        const parts = lastPO.split('-');
+        counter = parseInt(parts[2]) + 1;
+      }
     }
 
     return `PO-${today}-${String(counter).padStart(4, '0')}`;
@@ -281,25 +400,47 @@ class InventoryManager {
   async createPurchaseOrder(poData, userId) {
     const poNumber = await this.generatePONumber();
 
-    const result = this.db.prepare(`
-      INSERT INTO purchase_orders 
-      (po_number, supplier_id, order_date, expected_delivery_date, 
-       status, total_amount, tax_amount, grand_total, notes, created_by)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(
-      poNumber,
-      poData.supplier_id,
-      poData.order_date || new Date().toISOString(),
-      poData.expected_delivery_date || null,
-      poData.status || 'draft',
-      poData.total_amount || 0,
-      poData.tax_amount || 0,
-      poData.grand_total || 0,
-      poData.notes || null,
-      userId
-    );
-
-    const poId = result.lastInsertRowid;
+    let poId;
+    if (this.isPostgres) {
+      const result = await this.db.query(`
+        INSERT INTO purchase_orders
+        (po_number, supplier_id, order_date, expected_delivery_date,
+         status, total_amount, tax_amount, grand_total, notes, created_by)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+        RETURNING id
+      `, [
+        poNumber,
+        poData.supplier_id,
+        poData.order_date || new Date().toISOString(),
+        poData.expected_delivery_date || null,
+        poData.status || 'draft',
+        poData.total_amount || 0,
+        poData.tax_amount || 0,
+        poData.grand_total || 0,
+        poData.notes || null,
+        userId
+      ]);
+      poId = result.rows[0].id;
+    } else {
+      const result = this.db.prepare(`
+        INSERT INTO purchase_orders
+        (po_number, supplier_id, order_date, expected_delivery_date,
+         status, total_amount, tax_amount, grand_total, notes, created_by)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `).run(
+        poNumber,
+        poData.supplier_id,
+        poData.order_date || new Date().toISOString(),
+        poData.expected_delivery_date || null,
+        poData.status || 'draft',
+        poData.total_amount || 0,
+        poData.tax_amount || 0,
+        poData.grand_total || 0,
+        poData.notes || null,
+        userId
+      );
+      poId = result.lastInsertRowid;
+    }
 
     // Add items if provided
     if (poData.items && poData.items.length > 0) {
@@ -313,20 +454,37 @@ class InventoryManager {
 
   // Get purchase order by ID
   async getPurchaseOrder(poId) {
-    const result = this.db.exec('SELECT * FROM purchase_orders WHERE id = ?', [poId]);
+    let result;
+    if (this.isPostgres) {
+      result = await this.db.query('SELECT * FROM purchase_orders WHERE id = $1', [poId]);
+    } else {
+      result = this.db.exec('SELECT * FROM purchase_orders WHERE id = ?', [poId]);
+    }
     const orders = this._resultToObjects(result);
     const po = orders[0] || null;
 
     if (po) {
       // Get items
-      const itemsResult = this.db.exec('SELECT * FROM purchase_order_items WHERE po_id = ?', [poId]);
-      po.items = this._resultToObjects(itemsResult);
+      if (this.isPostgres) {
+        const itemsResult = await this.db.query('SELECT * FROM purchase_order_items WHERE po_id = $1', [poId]);
+        po.items = this._resultToObjects(itemsResult);
 
-      // Get supplier info
-      if (po.supplier_id) {
-        const supplierResult = this.db.exec('SELECT id, name, phone, email FROM suppliers WHERE id = ?', [po.supplier_id]);
-        const suppliers = this._resultToObjects(supplierResult);
-        po.supplier = suppliers[0] || null;
+        // Get supplier info
+        if (po.supplier_id) {
+          const supplierResult = await this.db.query('SELECT id, name, phone, email FROM suppliers WHERE id = $1', [po.supplier_id]);
+          const suppliers = this._resultToObjects(supplierResult);
+          po.supplier = suppliers[0] || null;
+        }
+      } else {
+        const itemsResult = this.db.exec('SELECT * FROM purchase_order_items WHERE po_id = ?', [poId]);
+        po.items = this._resultToObjects(itemsResult);
+
+        // Get supplier info
+        if (po.supplier_id) {
+          const supplierResult = this.db.exec('SELECT id, name, phone, email FROM suppliers WHERE id = ?', [po.supplier_id]);
+          const suppliers = this._resultToObjects(supplierResult);
+          po.supplier = suppliers[0] || null;
+        }
       }
     }
 
@@ -339,21 +497,32 @@ class InventoryManager {
     const params = [];
 
     if (statusFilter) {
-      query += ' WHERE status = ?';
+      query += ' WHERE status = $1';
       params.push(statusFilter);
     }
 
     query += ' ORDER BY order_date DESC';
 
-    const result = this.db.exec(query, params);
+    let result;
+    if (this.isPostgres) {
+      result = await this.db.query(query, params);
+    } else {
+      result = this.db.exec(query.replace(/\$/g, '?'), params);
+    }
     const orders = this._resultToObjects(result);
 
     // Enrich with supplier info
     for (const order of orders) {
       if (order.supplier_id) {
-        const supplierResult = this.db.exec('SELECT id, name, phone, email FROM suppliers WHERE id = ?', [order.supplier_id]);
-        const suppliers = this._resultToObjects(supplierResult);
-        order.supplier = suppliers[0] || null;
+        if (this.isPostgres) {
+          const supplierResult = await this.db.query('SELECT id, name, phone, email FROM suppliers WHERE id = $1', [order.supplier_id]);
+          const suppliers = this._resultToObjects(supplierResult);
+          order.supplier = suppliers[0] || null;
+        } else {
+          const supplierResult = this.db.exec('SELECT id, name, phone, email FROM suppliers WHERE id = ?', [order.supplier_id]);
+          const suppliers = this._resultToObjects(supplierResult);
+          order.supplier = suppliers[0] || null;
+        }
       }
     }
 
@@ -362,20 +531,37 @@ class InventoryManager {
 
   // Add item to purchase order
   async addPurchaseOrderItem(poId, itemData, userId) {
-    const result = this.db.prepare(`
-      INSERT INTO purchase_order_items 
-      (po_id, menu_item_id, quantity, unit_price, total_price, received_quantity)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(
-      poId,
-      itemData.menu_item_id,
-      itemData.quantity,
-      itemData.unit_price,
-      itemData.total_price,
-      itemData.received_quantity || 0
-    );
-
-    const itemId = result.lastInsertRowid;
+    let itemId;
+    if (this.isPostgres) {
+      const result = await this.db.query(`
+        INSERT INTO purchase_order_items
+        (po_id, menu_item_id, quantity, unit_price, total_price, received_quantity)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id
+      `, [
+        poId,
+        itemData.menu_item_id,
+        itemData.quantity,
+        itemData.unit_price,
+        itemData.total_price,
+        itemData.received_quantity || 0
+      ]);
+      itemId = result.rows[0].id;
+    } else {
+      const result = this.db.prepare(`
+        INSERT INTO purchase_order_items
+        (po_id, menu_item_id, quantity, unit_price, total_price, received_quantity)
+        VALUES (?, ?, ?, ?, ?, ?)
+      `).run(
+        poId,
+        itemData.menu_item_id,
+        itemData.quantity,
+        itemData.unit_price,
+        itemData.total_price,
+        itemData.received_quantity || 0
+      );
+      itemId = result.lastInsertRowid;
+    }
 
     // Update PO totals
     await this._updatePOTotals(poId);
@@ -1017,10 +1203,12 @@ class InventoryManager {
       
       if (itemId) {
         // Reverse inventory for specific item
-        const item = await this.db.get(
+        const result = this.db.exec(
           'SELECT * FROM order_items WHERE id = ?',
           [itemId]
         );
+        const items = this._resultToObjects(result);
+        const item = items[0];
         
         if (!item) {
           throw new Error('Order item not found');
@@ -1033,10 +1221,11 @@ class InventoryManager {
         });
       } else {
         // Reverse inventory for all items in order
-        const items = await this.db.all(
+        const result = this.db.exec(
           'SELECT * FROM order_items WHERE order_id = ? AND item_void_status = ?',
           [orderId, 'ACTIVE']
         );
+        const items = this._resultToObjects(result);
         
         itemsToReverse = items.map(item => ({
           product_id: item.product_id,
@@ -1061,10 +1250,12 @@ class InventoryManager {
   async _reverseInventoryForProduct(productId, quantity, userId, orderId = null, orderItemId = null) {
     try {
       // Get current inventory
-      const inventory = await this.db.get(
+      const result = this.db.exec(
         'SELECT * FROM inventory WHERE product_id = ?',
         [productId]
       );
+      const inventories = this._resultToObjects(result);
+      const inventory = inventories[0];
       
       if (!inventory) {
         // Create inventory record if it doesn't exist
@@ -1074,10 +1265,12 @@ class InventoryManager {
         );
         
         // Get the newly created inventory
-        const newInventory = await this.db.get(
+        const newResult = this.db.exec(
           'SELECT * FROM inventory WHERE product_id = ?',
           [productId]
         );
+        const newInventories = this._resultToObjects(newResult);
+        const newInventory = newInventories[0];
         
         // Update with the reversed quantity
         const newQuantity = newInventory.quantity + quantity;
@@ -1140,17 +1333,19 @@ class InventoryManager {
     try {
       if (itemId) {
         // Get the order item
-        const item = await this.db.get(
+        const result = this.db.exec(
           'SELECT * FROM order_items WHERE id = ?',
           [itemId]
         );
+        const items = this._resultToObjects(result);
+        const item = items[0];
         
         if (!item) {
           throw new Error('Order item not found');
         }
         
         // Reverse the weight
-        const result = await this.restockWeight(item.product_id, weightUsed || item.item_weight, weightUnit);
+        const weightResult = await this.restockWeight(item.product_id, weightUsed || item.item_weight, weightUnit);
         
         // Log the void transaction
         await this.db.run(
@@ -1163,22 +1358,23 @@ class InventoryManager {
             itemId,
             weightUsed || item.item_weight,
             weightUnit,
-            result.newWeight,
+            weightResult.newWeight,
             'void'
           ]
         );
         
-        return result;
+        return weightResult;
       }
       
       // For full order void, reverse all weighted items
-      const items = await this.db.all(
+      const itemsResult = this.db.exec(
         'SELECT * FROM order_items WHERE order_id = ? AND item_weight > 0 AND item_void_status = ?',
         [orderId, 'ACTIVE']
       );
+      const items = this._resultToObjects(itemsResult);
       
       for (const item of items) {
-        await this.restockWeight(item.product_id, item.item_weight, item.weight_unit || 'gram');
+        const weightResult = await this.restockWeight(item.product_id, item.item_weight, item.weight_unit || 'gram');
         
         await this.db.run(
           `INSERT INTO inventory_weight_logs
@@ -1190,7 +1386,7 @@ class InventoryManager {
             item.id,
             item.item_weight,
             item.weight_unit || 'gram',
-            result.newWeight,
+            weightResult.newWeight,
             'void'
           ]
         );

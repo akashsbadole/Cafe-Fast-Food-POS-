@@ -1,22 +1,21 @@
 // Import required modules
 const path = require('path');
 
-// Import Electron modules directly
+// Import Electron modules
 const { app, BrowserWindow, ipcMain, screen } = require('electron');
-
-console.log('Electron app:', !!app);
-console.log('Electron BrowserWindow:', !!BrowserWindow);
-console.log('Electron ipcMain:', !!ipcMain);
-console.log('Electron screen:', !!screen);
-
-// Check if Electron is available
-if (!app) {
-  console.error('Electron app is not available. Exiting...');
-  process.exit(1);
-}
 
 // Start Express server
 const { startServer } = require('./server.js');
+
+// Check if server is already running
+async function checkServerRunning() {
+  try {
+    const response = await fetch('http://127.0.0.1:3000/api/ping');
+    return response.ok;
+  } catch (error) {
+    return false;
+  }
+}
 
 // Load feature managers
 const ModifierManager = require('./js/modifier-manager.js');
@@ -92,11 +91,17 @@ function resetLockTimer() {
 // Initialize app
 async function initApp() {
   try {
-    console.log('Starting Express server...');
-    // Start the Express server first
-    await startServer();
-    console.log('Express server started successfully');
-    
+    // Check if server is already running
+    const serverRunning = await checkServerRunning();
+    if (!serverRunning) {
+      console.log('Starting Express server...');
+      // Start the Express server first
+      await startServer();
+      console.log('Express server started successfully');
+    } else {
+      console.log('Express server already running');
+    }
+
     // Then create the window
     console.log('Creating Electron window...');
     await createWindow();

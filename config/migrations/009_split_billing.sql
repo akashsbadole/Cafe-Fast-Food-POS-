@@ -5,7 +5,7 @@
 
 -- 1. Add split_bill_sessions table
 CREATE TABLE IF NOT EXISTS split_bill_sessions (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     order_id INTEGER NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -18,7 +18,7 @@ CREATE TABLE IF NOT EXISTS split_bill_sessions (
 
 -- 2. Add split_bill_items table
 CREATE TABLE IF NOT EXISTS split_bill_items (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL,
     item_id INTEGER NOT NULL,
     split_number INTEGER NOT NULL,
@@ -35,7 +35,7 @@ CREATE TABLE IF NOT EXISTS split_bill_items (
 
 -- 3. Add split_bill_payments table
 CREATE TABLE IF NOT EXISTS split_bill_payments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL,
     split_number INTEGER NOT NULL,
     payment_id INTEGER,
@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS split_bill_payments (
 
 -- 4. Add split_bill_customers table for customer-based splitting
 CREATE TABLE IF NOT EXISTS split_bill_customers (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL,
     split_number INTEGER NOT NULL,
     customer_id INTEGER,
@@ -62,7 +62,7 @@ CREATE TABLE IF NOT EXISTS split_bill_customers (
 
 -- 5. Add split_bill_history table for audit trail
 CREATE TABLE IF NOT EXISTS split_bill_history (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    id SERIAL PRIMARY KEY,
     session_id INTEGER NOT NULL,
     action TEXT NOT NULL,
     details TEXT,

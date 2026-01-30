@@ -1,13 +1,24 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
-const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  user: process.env.DB_USER || 'postgres',
-  password: process.env.DB_PASSWORD || 'password',
-  database: process.env.DB_NAME || 'cafe_pos',
-  port: process.env.DB_PORT || 5432,
-});
+const databaseUrl = process.env.DATABASE_URL;
+
+let poolConfig;
+if (databaseUrl) {
+  poolConfig = {
+    connectionString: databaseUrl,
+  };
+} else {
+  poolConfig = {
+    host: process.env.DB_HOST || 'localhost',
+    user: process.env.DB_USER || 'postgres',
+    password: process.env.DB_PASSWORD || 'password',
+    database: process.env.DB_NAME || 'cafe_pos',
+    port: process.env.DB_PORT || 5432,
+  };
+}
+
+const pool = new Pool(poolConfig);
 
 async function query(text, params) {
   const result = await pool.query(text, params);
@@ -935,6 +946,7 @@ module.exports = {
   menu: menuOps,
   order: orderOps,
   kot: kotOps,
+  customer: customerOps, // Add this line for consistency
   customerOps,
   settingOps,
   backupOps,
